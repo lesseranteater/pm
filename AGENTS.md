@@ -1,54 +1,55 @@
-# The Project Management MVP web app
+# Project Management MVP
 
-## Business Requirements
+## Current Goal
 
-This project is building a Project Management App. Key features:
+Build the complete local Project Management MVP described in `docs/PLAN.md`.
+The frontend-only Kanban demo is complete. The active roadmap now includes
+FastAPI, authentication, SQLite persistence, Docker packaging, and OpenRouter
+AI functionality.
 
-- A user can sign in
-- When signed in, the user sees a Kanban board representing their project
-- The Kanban board has fixed columns that can be renamed
-- The cards on the Kanban board can be moved with drag and drop, and edited
-- There is an AI chat feature in a sidebar; the AI is able to create / edit / move one or more cards
+Read `docs/PLAN.md` before starting work. It is the authoritative source for
+project phases, architecture decisions, approval gates, tests, and success
+criteria. Read `frontend/AGENTS.md` for SvelteKit-specific implementation,
+accessibility, and frontend testing guidance.
 
-## Limitations
+## Functional Scope
 
-For the MVP, there will only be a user sign in (hardcoded to 'user' and 'password') but the database will support multiple users for future.
+- Exactly one board with five fixed, renameable columns.
+- Cards with a title and details; support adding, editing, deleting, and
+  drag-and-drop movement between columns.
+- A hardcoded MVP login using `user` / `password`.
+- One board per authenticated user, persisted in SQLite.
+- An AI sidebar capable of creating, editing, moving, deleting, and renaming
+  board content through validated structured operations.
+- A polished, responsive, accessible UI, including a non-drag way to move cards.
+- No features outside the approved roadmap without explicit approval.
 
-For the MVP, there will only be 1 Kanban board per signed in user.
+## Architecture
 
-For the MVP, this will run locally (in a docker container)
+- SvelteKit uses `@sveltejs/adapter-static` and produces the frontend build.
+- FastAPI serves the static SvelteKit output at `/` and owns `/api` routes.
+- FastAPI owns authentication, SQLite persistence, and OpenRouter calls.
+- The application is packaged into one Docker container for local use.
+- Use `uv` for Python dependency management.
+- Keep `OPENROUTER_API_KEY` server-side and never expose it to browser code.
+- Use `openai/gpt-oss-120b` for OpenRouter requests.
 
-## Technical Decisions
+## Working Rules
 
-- SvelteKit frontend
-- Python FastAPI backend, including serving the static SvelteKit site at /
-- Everything packaged into a Docker container
-- Use "uv" as the package manager for python in the Docker container
-- Use OpenRouter for the AI calls. An OPENROUTER_API_KEY is in .env in the project root
-- Use `openai/gpt-oss-120b` as the model
-- Use SQLLite local database for the database, creating a new db if it doesn't exist
-- Start and Stop server scripts for Mac, PC, Linux in scripts/
+- Preserve the functional requirements during simplification and refactoring.
+- Keep changes focused and avoid speculative features or abstractions.
+- Establish the root cause of bugs before fixing them; verify relevant behavior.
+- Keep documentation concise and do not use emojis.
+- Do not commit secrets, local databases, generated output, or dependencies.
 
-## Starting Point
+## Planning And Delivery
 
-A working MVP of the frontend has been built and is already in frontend. This is not yet designed for the Docker setup. It's a pure frontend-only demo.
-
-## Color Scheme
-
-- Accent Yellow: `#ecad0a` - accent lines, highlights
-- Blue Primary: `#209dd7` - links, key sections
-- Purple Secondary: `#753991` - submit buttons, important actions
-- Dark Navy: `#032147` - main headings
-- Gray Text: `#888888` - supporting text, labels
-
-## Coding standards
-
-1. Use latest versions of libraries and idiomatic approaches as of today
-2. Keep it simple - NEVER over-engineer, ALWAYS simplify, NO unnecessary defensive programming. No extra features - focus on simplicity.
-3. Be concise. Keep README minimal. IMPORTANT: no emojis ever
-4. When hitting issues, always identify root cause before trying a fix. Do not guess. Prove with evidence, then fix the root cause.
-
-## Working documentation
-
-All documents for planning and executing this project will be in the docs/ directory.
-Please review the docs/PLAN.md document before proceeding.
+- Store project planning and architecture documents in `docs/`.
+- Work through `docs/PLAN.md` in order and respect its approval gates.
+- Do not skip database-schema or structured-AI-contract approval.
+- Treat the frontend-only limitations in `frontend/AGENTS.md` as applying to
+  the completed demo phase; they do not prohibit explicitly approved roadmap
+  phases.
+- At implementation handoff, verify the required user journeys, leave the
+  local application ready when practical, and report the URL, checks, and any
+  blockers accurately.

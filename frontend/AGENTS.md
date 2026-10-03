@@ -7,7 +7,7 @@ the MVP below. Apply these instructions proportionately to the task.
 
 This section is technology-neutral and can be reused independently of Part 2.
 
-### Think Before Changing Code
+### Think Before Changing Code 
 
 - State material assumptions and explain uncertainty. Ask when an unresolved
   ambiguity would materially change the implementation.
