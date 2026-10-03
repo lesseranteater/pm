@@ -174,3 +174,9 @@ cython_debug/
 
 .DS_Store
 
+# Local project server and application data
+.pm-server.pid
+.pm-server.log
+.pm-server-error.log
+data/
+

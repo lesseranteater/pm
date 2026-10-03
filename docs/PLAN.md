@@ -34,51 +34,53 @@
 
 - [x] Establish the frontend technology and deployment architecture.
 - [x] Define the functional MVP requirements.
-- [ ] Record the decisions in this document and get user approval.
-- [ ] Confirm the existing frontend passes its checks before backend work begins.
-- [ ] Record the API, database, and Docker assumptions that later phases depend on.
+- [x] Record the decisions in this document and get user approval.
+- [x] Confirm the existing frontend passes its checks before backend work begins.
+- [x] Record the API, database, and Docker assumptions that later phases depend on.
 
 ### Tests And Verification
 
-- [ ] Run `pnpm check`, `pnpm lint`, `pnpm test:unit --run`, `pnpm build`, and
+- [x] Run `pnpm check`, `pnpm lint`, `pnpm test:unit --run`, `pnpm build`, and
       `pnpm test:e2e` in `frontend/`.
-- [ ] Confirm the static build is suitable for FastAPI to serve.
+- [x] Confirm the static build is suitable for FastAPI to serve.
 
 ### Success Criteria
 
-- [ ] The roadmap and architecture decisions are approved.
-- [ ] The existing frontend remains functional and its baseline checks pass.
+- [x] The roadmap and architecture decisions are approved.
+- [x] The existing frontend remains functional and its baseline checks pass.
 
 ## Part 2: Backend And Docker Scaffolding
 
 ### Tasks
 
-- [ ] Create the FastAPI application under `backend/`.
-- [ ] Add a health endpoint and a simple example API endpoint.
-- [ ] Add development and production dependency configuration using `uv`.
-- [ ] Add configuration loading without committing secrets.
-- [ ] Build the SvelteKit frontend with `pnpm build` as part of the container build.
-- [ ] Configure FastAPI to serve `frontend/build/` at `/` and serve the SPA
+- [x] Create the FastAPI application under `backend/`.
+- [x] Add a health endpoint and a simple example API endpoint.
+- [x] Add development and production dependency configuration using `uv`.
+- [x] Add configuration loading without committing secrets.
+- [x] Build the SvelteKit frontend with `pnpm build` as part of the container build.
+- [x] Configure FastAPI to serve `frontend/build/` at `/` and serve the SPA
       fallback for frontend routes while preserving `/api/*` routing.
-- [ ] Create a Dockerfile for the combined application.
-- [ ] Add Linux, macOS, and Windows start and stop scripts under `scripts/`.
-- [ ] Add backend test configuration and a minimal test application fixture.
+- [x] Create a Dockerfile for the combined application.
+- [x] Add Linux, macOS, and Windows start and stop scripts under `scripts/`.
+- [x] Add backend test configuration and a minimal test application fixture.
 
 ### Tests And Verification
 
-- [ ] Test the health endpoint and example API endpoint.
-- [ ] Test that the built frontend is served at `/`.
-- [ ] Test unknown frontend routes use the configured fallback.
-- [ ] Build the Docker image from a clean dependency install.
-- [ ] Start the container and verify frontend and API requests.
-- [ ] Verify the stop scripts terminate the application cleanly.
+- [x] Test the health endpoint and example API endpoint.
+- [x] Test that the built frontend is served at `/`.
+- [x] Test unknown frontend routes use the configured fallback.
+- [x] Build the Docker image from a clean dependency install.
+- [x] Start the container and verify frontend and API requests.
+- [x] Verify the Linux start and stop scripts terminate the application cleanly.
+- [ ] Verify the Windows start and stop scripts on Windows. The scripts are
+      present but have not been executed in this Linux environment.
 
 ### Success Criteria
 
-- [ ] One local command starts the complete application.
-- [ ] The application is reachable through one host port.
-- [ ] `/` serves the SvelteKit application and `/api/health` responds successfully.
-- [ ] The container starts without requiring a local Python or Node runtime.
+- [x] One local command starts the complete application.
+- [x] The application is reachable through one host port.
+- [x] `/` serves the SvelteKit application and `/api/health` responds successfully.
+- [x] The container starts without requiring a local Python or Node runtime.
 
 ## Part 3: Database Schema And Initialization
 
