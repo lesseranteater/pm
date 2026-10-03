@@ -3,6 +3,7 @@
 ## Business Requirements
 
 This project is building a Project Management App. Key features:
+
 - A user can sign in
 - When signed in, the user sees a Kanban board representing their project
 - The Kanban board has fixed columns that can be renamed
@@ -19,8 +20,8 @@ For the MVP, this will run locally (in a docker container)
 
 ## Technical Decisions
 
-- NextJS frontend
-- Python FastAPI backend, including serving the static NextJS site at /
+- SvelteKit frontend
+- Python FastAPI backend, including serving the static SvelteKit site at /
 - Everything packaged into a Docker container
 - Use "uv" as the package manager for python in the Docker container
 - Use OpenRouter for the AI calls. An OPENROUTER_API_KEY is in .env in the project root
