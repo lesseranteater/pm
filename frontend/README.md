@@ -68,7 +68,6 @@ The generated static files are written to `build/` for the FastAPI container.
 - `e2e/`: Playwright end-to-end tests.
 - `AGENTS.md`: implementation requirements and working conventions.
 
-Keep the MVP local and simple. Do not add persistence, authentication, AI
-features, or backend integration unless explicitly requested. When backend
-integration is added, browser requests should use same-origin `/api` routes
-served by FastAPI.
+Keep the frontend simple and use same-origin `/api` routes served by FastAPI.
+Authentication is now implemented by the backend; board persistence and AI
+integration remain later roadmap phases.

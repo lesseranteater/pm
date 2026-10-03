@@ -1,7 +1,16 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import { onMount } from 'svelte';
   import { createCard, createDemoBoard, type Card, type Column } from '$lib/board';
 
+  type AuthStatus = 'checking' | 'signed-out' | 'signed-in';
+
+  let authStatus = $state<AuthStatus>('checking');
+  let signedInUsername = $state('');
+  let loginUsername = $state('');
+  let loginPassword = $state('');
+  let loginError = $state('');
+  let loginPending = $state(false);
   let columns = $state<Column[]>(createDemoBoard());
   let draggedCardId = $state<string | null>(null);
   let editingCardId = $state<string | null>(null);
@@ -15,6 +24,65 @@
   let statusMessage = $state('');
 
   const cardCount = $derived(columns.reduce((total, column) => total + column.cards.length, 0));
+
+  onMount(() => {
+    void loadSession();
+  });
+
+  async function loadSession() {
+    try {
+      const response = await globalThis.fetch('/api/auth/me', { credentials: 'same-origin' });
+      if (!response.ok) {
+        authStatus = 'signed-out';
+        return;
+      }
+      const user = (await response.json()) as { username: string };
+      signedInUsername = user.username;
+      authStatus = 'signed-in';
+    } catch {
+      loginError = 'Unable to reach the server. Try again shortly.';
+      authStatus = 'signed-out';
+    }
+  }
+
+  async function submitLogin(event: globalThis.SubmitEvent) {
+    event.preventDefault();
+    loginPending = true;
+    loginError = '';
+    try {
+      const response = await globalThis.fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ username: loginUsername, password: loginPassword })
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+        throw new Error(body?.detail ?? 'Unable to sign in');
+      }
+      const user = (await response.json()) as { username: string };
+      signedInUsername = user.username;
+      loginPassword = '';
+      columns = createDemoBoard();
+      authStatus = 'signed-in';
+    } catch (error) {
+      loginError = error instanceof Error ? error.message : 'Unable to sign in';
+    } finally {
+      loginPending = false;
+    }
+  }
+
+  async function logout() {
+    await globalThis
+      .fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin'
+      })
+      .catch(() => undefined);
+    columns = createDemoBoard();
+    signedInUsername = '';
+    authStatus = 'signed-out';
+  }
 
   function findCard(cardId: string): { card: Card; column: Column } | null {
     for (const column of columns) {
@@ -122,197 +190,246 @@
       <span>Northstar <strong>Board</strong></span>
     </a>
     <div class="topbar-meta">
-      <span class="live-indicator"><span></span> Local workspace</span>
-      <span class="avatar" aria-label="Signed in as Alex">A</span>
+      {#if authStatus === 'signed-in'}
+        <span class="live-indicator"><span></span> Local workspace</span>
+        <span class="signed-in-name">{signedInUsername}</span>
+        <button class="logout-button" type="button" onclick={logout}>Log out</button>
+      {:else if authStatus === 'checking'}
+        <span class="live-indicator"><span></span> Checking session</span>
+      {/if}
     </div>
   </header>
 
-  <main class="workspace">
-    <section class="intro" aria-labelledby="page-title">
-      <div>
-        <p class="eyebrow">Project workspace <span>•</span> Spring launch</p>
-        <h1 id="page-title">Make the next move.</h1>
-        <p class="intro-copy">A clear view of the work in motion, one thoughtful step at a time.</p>
+  {#if authStatus === 'checking'}
+    <main class="auth-page" aria-live="polite">
+      <div class="auth-card loading-card">
+        <span class="auth-kicker">Northstar Board</span>
+        <h1>Checking your workspace.</h1>
+        <p>One moment while we restore your session.</p>
       </div>
-      <div class="board-summary" aria-label={`${cardCount} cards across ${columns.length} columns`}>
-        <span class="summary-number">{cardCount}</span>
-        <span class="summary-label">active cards</span>
-      </div>
-    </section>
-
-    <div class="toolbar">
-      <div class="toolbar-label"><span class="yellow-dot"></span> Your board</div>
-      <p>Drag cards to move them, or use the move menu on each card.</p>
-    </div>
-
-    <section class="board" aria-label="Kanban board">
-      {#each columns as column (column.id)}
-        <article
-          class:drop-target={draggedCardId !== null}
-          class="column"
-          ondragover={(event) => event.preventDefault()}
-          ondrop={(event) => handleDrop(event, column.id)}
+    </main>
+  {:else if authStatus === 'signed-out'}
+    <main class="auth-page">
+      <section class="auth-card" aria-labelledby="login-title">
+        <span class="auth-kicker">Private workspace</span>
+        <h1 id="login-title">Welcome back.</h1>
+        <p>Sign in to continue to your project board.</p>
+        <form class="login-form" onsubmit={submitLogin}>
+          <label for="login-username">Username</label>
+          <input id="login-username" bind:value={loginUsername} autocomplete="username" required />
+          <label for="login-password">Password</label>
+          <input
+            id="login-password"
+            type="password"
+            bind:value={loginPassword}
+            autocomplete="current-password"
+            required
+          />
+          {#if loginError}
+            <p class="login-error" role="alert">{loginError}</p>
+          {/if}
+          <button class="button button-primary login-button" type="submit" disabled={loginPending}>
+            {loginPending ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+        <p class="credential-hint">
+          Demo credentials: <strong>user</strong> / <strong>password</strong>
+        </p>
+      </section>
+    </main>
+  {:else}
+    <main class="workspace">
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">Project workspace <span>•</span> Spring launch</p>
+          <h1 id="page-title">Make the next move.</h1>
+          <p class="intro-copy">
+            A clear view of the work in motion, one thoughtful step at a time.
+          </p>
+        </div>
+        <div
+          class="board-summary"
+          aria-label={`${cardCount} cards across ${columns.length} columns`}
         >
-          <header class="column-header">
-            {#if editingColumnId === column.id}
+          <span class="summary-number">{cardCount}</span>
+          <span class="summary-label">active cards</span>
+        </div>
+      </section>
+
+      <div class="toolbar">
+        <div class="toolbar-label"><span class="yellow-dot"></span> Your board</div>
+        <p>Drag cards to move them, or use the move menu on each card.</p>
+      </div>
+
+      <section class="board" aria-label="Kanban board">
+        {#each columns as column (column.id)}
+          <article
+            class:drop-target={draggedCardId !== null}
+            class="column"
+            ondragover={(event) => event.preventDefault()}
+            ondrop={(event) => handleDrop(event, column.id)}
+          >
+            <header class="column-header">
+              {#if editingColumnId === column.id}
+                <form
+                  class="rename-form"
+                  onsubmit={(event) => {
+                    event.preventDefault();
+                    saveColumnName(column);
+                  }}
+                >
+                  <label class="sr-only" for={`rename-${column.id}`}>Column name</label>
+                  <input id={`rename-${column.id}`} bind:value={draftColumnName} maxlength="28" />
+                  <button class="icon-button confirm" type="submit" aria-label="Save column name"
+                    >✓</button
+                  >
+                  <button
+                    class="icon-button"
+                    type="button"
+                    aria-label="Cancel rename"
+                    onclick={() => (editingColumnId = null)}>×</button
+                  >
+                </form>
+              {:else}
+                <div class="column-title-row">
+                  <h2>{column.name}</h2>
+                  <button
+                    class="icon-button"
+                    type="button"
+                    aria-label={`Rename ${column.name} column`}
+                    onclick={() => startRename(column)}>•••</button
+                  >
+                </div>
+              {/if}
+              <span class="count-badge">{column.cards.length}</span>
+            </header>
+
+            <div class="card-list" aria-label={`${column.name} cards`}>
+              {#each column.cards as card (card.id)}
+                <article
+                  class:dragging={draggedCardId === card.id}
+                  class="task-card"
+                  draggable="true"
+                  ondragstart={(event) => handleDragStart(event, card.id)}
+                  ondragend={handleDragEnd}
+                >
+                  {#if editingCardId === card.id}
+                    <form
+                      class="edit-card-form"
+                      onsubmit={(event) => {
+                        event.preventDefault();
+                        saveCard(card.id);
+                      }}
+                    >
+                      <label for={`edit-title-${card.id}`}>Title</label>
+                      <input
+                        id={`edit-title-${card.id}`}
+                        bind:value={draftTitle}
+                        maxlength="80"
+                        required
+                      />
+                      <label for={`edit-details-${card.id}`}>Details</label>
+                      <textarea
+                        id={`edit-details-${card.id}`}
+                        bind:value={draftDetails}
+                        rows="3"
+                        maxlength="240"></textarea>
+                      <div class="form-actions">
+                        <button class="button button-primary" type="submit">Save</button>
+                        <button
+                          class="button button-quiet"
+                          type="button"
+                          onclick={() => (editingCardId = null)}>Cancel</button
+                        >
+                      </div>
+                    </form>
+                  {:else}
+                    <div class="card-topline">
+                      <span class="card-grip" aria-hidden="true">⠿</span>
+                      <button
+                        class="card-menu"
+                        type="button"
+                        aria-label={`Edit ${card.title}`}
+                        onclick={() => startEditCard(card.id)}>Edit</button
+                      >
+                    </div>
+                    <h3>{card.title}</h3>
+                    <p>{card.details}</p>
+                    <div class="card-footer">
+                      <span class="card-tag">Task</span>
+                      <div class="card-actions">
+                        <label class="sr-only" for={`move-${card.id}`}>Move {card.title} to</label>
+                        <select
+                          id={`move-${card.id}`}
+                          class="move-select"
+                          value={column.id}
+                          aria-label={`Move ${card.title} to`}
+                          onchange={(event) => moveCard(card.id, event.currentTarget.value)}
+                        >
+                          {#each columns as destination (destination.id)}
+                            <option value={destination.id}>{destination.name}</option>
+                          {/each}
+                        </select>
+                        <button
+                          class="delete-button"
+                          type="button"
+                          onclick={() => deleteCard(card.id)}>Delete</button
+                        >
+                      </div>
+                    </div>
+                  {/if}
+                </article>
+              {/each}
+              {#if column.cards.length === 0}
+                <div class="empty-column">
+                  <span>✦</span>
+                  <p>Drop a card here</p>
+                </div>
+              {/if}
+            </div>
+
+            {#if newCardColumnId === column.id}
               <form
-                class="rename-form"
+                class="new-card-form"
                 onsubmit={(event) => {
                   event.preventDefault();
-                  saveColumnName(column);
+                  addCard(column);
                 }}
               >
-                <label class="sr-only" for={`rename-${column.id}`}>Column name</label>
-                <input id={`rename-${column.id}`} bind:value={draftColumnName} maxlength="28" />
-                <button class="icon-button confirm" type="submit" aria-label="Save column name"
-                  >✓</button
-                >
-                <button
-                  class="icon-button"
-                  type="button"
-                  aria-label="Cancel rename"
-                  onclick={() => (editingColumnId = null)}>×</button
-                >
+                <label for={`new-title-${column.id}`}>Title</label>
+                <input
+                  id={`new-title-${column.id}`}
+                  bind:value={newTitle}
+                  placeholder="What needs doing?"
+                  maxlength="80"
+                  required
+                />
+                <label for={`new-details-${column.id}`}>Details <span>(optional)</span></label>
+                <textarea
+                  id={`new-details-${column.id}`}
+                  bind:value={newDetails}
+                  placeholder="Add useful context"
+                  rows="3"
+                  maxlength="240"></textarea>
+                <div class="form-actions">
+                  <button class="button button-primary" type="submit">Add card</button>
+                  <button
+                    class="button button-quiet"
+                    type="button"
+                    onclick={() => (newCardColumnId = null)}>Cancel</button
+                  >
+                </div>
               </form>
             {:else}
-              <div class="column-title-row">
-                <h2>{column.name}</h2>
-                <button
-                  class="icon-button"
-                  type="button"
-                  aria-label={`Rename ${column.name} column`}
-                  onclick={() => startRename(column)}>•••</button
-                >
-              </div>
-            {/if}
-            <span class="count-badge">{column.cards.length}</span>
-          </header>
-
-          <div class="card-list" aria-label={`${column.name} cards`}>
-            {#each column.cards as card (card.id)}
-              <article
-                class:dragging={draggedCardId === card.id}
-                class="task-card"
-                draggable="true"
-                ondragstart={(event) => handleDragStart(event, card.id)}
-                ondragend={handleDragEnd}
+              <button class="add-card" type="button" onclick={() => openNewCard(column.id)}
+                ><span>+</span> Add card</button
               >
-                {#if editingCardId === card.id}
-                  <form
-                    class="edit-card-form"
-                    onsubmit={(event) => {
-                      event.preventDefault();
-                      saveCard(card.id);
-                    }}
-                  >
-                    <label for={`edit-title-${card.id}`}>Title</label>
-                    <input
-                      id={`edit-title-${card.id}`}
-                      bind:value={draftTitle}
-                      maxlength="80"
-                      required
-                    />
-                    <label for={`edit-details-${card.id}`}>Details</label>
-                    <textarea
-                      id={`edit-details-${card.id}`}
-                      bind:value={draftDetails}
-                      rows="3"
-                      maxlength="240"></textarea>
-                    <div class="form-actions">
-                      <button class="button button-primary" type="submit">Save</button>
-                      <button
-                        class="button button-quiet"
-                        type="button"
-                        onclick={() => (editingCardId = null)}>Cancel</button
-                      >
-                    </div>
-                  </form>
-                {:else}
-                  <div class="card-topline">
-                    <span class="card-grip" aria-hidden="true">⠿</span>
-                    <button
-                      class="card-menu"
-                      type="button"
-                      aria-label={`Edit ${card.title}`}
-                      onclick={() => startEditCard(card.id)}>Edit</button
-                    >
-                  </div>
-                  <h3>{card.title}</h3>
-                  <p>{card.details}</p>
-                  <div class="card-footer">
-                    <span class="card-tag">Task</span>
-                    <div class="card-actions">
-                      <label class="sr-only" for={`move-${card.id}`}>Move {card.title} to</label>
-                      <select
-                        id={`move-${card.id}`}
-                        class="move-select"
-                        value={column.id}
-                        aria-label={`Move ${card.title} to`}
-                        onchange={(event) => moveCard(card.id, event.currentTarget.value)}
-                      >
-                        {#each columns as destination (destination.id)}
-                          <option value={destination.id}>{destination.name}</option>
-                        {/each}
-                      </select>
-                      <button
-                        class="delete-button"
-                        type="button"
-                        onclick={() => deleteCard(card.id)}>Delete</button
-                      >
-                    </div>
-                  </div>
-                {/if}
-              </article>
-            {/each}
-            {#if column.cards.length === 0}
-              <div class="empty-column">
-                <span>✦</span>
-                <p>Drop a card here</p>
-              </div>
             {/if}
-          </div>
-
-          {#if newCardColumnId === column.id}
-            <form
-              class="new-card-form"
-              onsubmit={(event) => {
-                event.preventDefault();
-                addCard(column);
-              }}
-            >
-              <label for={`new-title-${column.id}`}>Title</label>
-              <input
-                id={`new-title-${column.id}`}
-                bind:value={newTitle}
-                placeholder="What needs doing?"
-                maxlength="80"
-                required
-              />
-              <label for={`new-details-${column.id}`}>Details <span>(optional)</span></label>
-              <textarea
-                id={`new-details-${column.id}`}
-                bind:value={newDetails}
-                placeholder="Add useful context"
-                rows="3"
-                maxlength="240"></textarea>
-              <div class="form-actions">
-                <button class="button button-primary" type="submit">Add card</button>
-                <button
-                  class="button button-quiet"
-                  type="button"
-                  onclick={() => (newCardColumnId = null)}>Cancel</button
-                >
-              </div>
-            </form>
-          {:else}
-            <button class="add-card" type="button" onclick={() => openNewCard(column.id)}
-              ><span>+</span> Add card</button
-            >
-          {/if}
-        </article>
-      {/each}
-    </section>
-  </main>
+          </article>
+        {/each}
+      </section>
+    </main>
+  {/if}
 
   <p class="sr-only" aria-live="polite">{statusMessage}</p>
 </div>

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import hashlib
 import sqlite3
 from pathlib import Path
 
+from .auth import password_hash
 from .main_paths import PROJECT_ROOT
 
 
@@ -105,12 +105,6 @@ SEED_CARDS = (
 )
 
 
-def _password_hash(password: str) -> str:
-    return hashlib.pbkdf2_hmac(
-        "sha256", password.encode(), b"project-management-mvp-seed", 120_000
-    ).hex()
-
-
 def connect(database_path: Path | str) -> sqlite3.Connection:
     connection = sqlite3.connect(database_path)
     connection.row_factory = sqlite3.Row
@@ -129,7 +123,7 @@ def initialize_database(database_path: Path | str | None = None) -> Path:
             INSERT OR IGNORE INTO users (id, username, password_hash)
             VALUES (?, ?, ?)
             """,
-            ("user-mvp", "user", _password_hash("password")),
+            ("user-mvp", "user", password_hash("password")),
         )
         connection.execute(
             """

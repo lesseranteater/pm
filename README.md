@@ -14,12 +14,13 @@ Available now:
 - Static SvelteKit build served by FastAPI.
 - Health and example API endpoints.
 - SQLite schema creation and deterministic seed data.
+- Hardcoded login with server-side SQLite sessions.
 - Docker image and cross-platform start/stop scripts.
 
 Not implemented yet:
 
 - Authentication.
-- Authenticated Kanban API persistence.
+- Persistent Kanban API integration.
 - OpenRouter AI integration.
 
 These are planned phases documented in [`docs/PLAN.md`](docs/PLAN.md).

@@ -83,20 +83,110 @@ button {
   background: #5abd8b;
   box-shadow: 0 0 0 4px #e2f5eb;
 }
-.avatar {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
+.signed-in-name {
+  color: #31475c;
+}
+.logout-button {
+  border: 0;
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
   color: #753991;
-  background: #f0e9f4;
+  background: #f1eaf5;
+  font-size: 0.7rem;
   font-weight: 700;
+}
+.logout-button:hover,
+.logout-button:focus-visible {
+  color: white;
+  background: #753991;
 }
 .workspace {
   width: min(1440px, calc(100% - 2.5rem));
   margin: 0 auto;
   padding: clamp(3rem, 6vw, 5.5rem) 0 4rem;
+}
+.auth-page {
+  display: grid;
+  min-height: calc(100vh - 76px);
+  place-items: center;
+  padding: 2rem 1.25rem 5rem;
+}
+.auth-card {
+  width: min(100%, 430px);
+  padding: clamp(2rem, 6vw, 3.3rem);
+  border: 1px solid #e1e9ef;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 20px 60px rgba(3, 33, 71, 0.08);
+}
+.loading-card {
+  text-align: center;
+}
+.auth-kicker {
+  display: block;
+  margin-bottom: 1rem;
+  color: #209dd7;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.auth-card h1 {
+  margin: 0;
+  font-size: clamp(2.3rem, 7vw, 3.8rem);
+  letter-spacing: -0.07em;
+}
+.auth-card > p {
+  margin: 1rem 0 2rem;
+  color: #718091;
+  line-height: 1.5;
+}
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.login-form label {
+  margin-top: 0.55rem;
+  color: #38546b;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.login-form input {
+  width: 100%;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid #d8e2e9;
+  border-radius: 7px;
+  outline: none;
+  color: #183957;
+  background: white;
+}
+.login-form input:focus {
+  border-color: #209dd7;
+  box-shadow: 0 0 0 3px #e3f6fc;
+}
+.login-button {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.75rem;
+}
+.login-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.login-error {
+  margin: 0.5rem 0 0 !important;
+  color: #b34d59 !important;
+  font-size: 0.78rem;
+}
+.credential-hint {
+  margin: 1.5rem 0 0 !important;
+  color: #9aa7b2 !important;
+  font-size: 0.72rem;
+  text-align: center;
+}
+.credential-hint strong {
+  color: #753991;
 }
 .intro {
   display: flex;
@@ -483,6 +573,9 @@ h1 {
     padding: 0 1rem;
   }
   .live-indicator {
+    display: none;
+  }
+  .signed-in-name {
     display: none;
   }
   .workspace {

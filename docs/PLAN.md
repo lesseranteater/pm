@@ -125,31 +125,31 @@
 
 ### Tasks
 
-- [ ] Add login and logout API routes.
-- [ ] Accept only `user` / `password` for the MVP.
-- [ ] Store sessions server-side in SQLite and send an HTTP-only cookie.
-- [ ] Set secure cookie attributes appropriate for local development and production.
-- [ ] Add an authenticated-user dependency for protected routes.
-- [ ] Avoid returning passwords, session tokens, or secret configuration.
-- [ ] Add a SvelteKit login view and protect the board view.
+- [x] Add login and logout API routes.
+- [x] Accept only `user` / `password` for the MVP.
+- [x] Store sessions server-side in SQLite and send an HTTP-only cookie.
+- [x] Set secure cookie attributes appropriate for local development and production.
+- [x] Add an authenticated-user dependency for protected routes.
+- [x] Avoid returning passwords, session tokens, or secret configuration.
+- [x] Add a SvelteKit login view and protect the board view.
 - [ ] Add logout behavior and unauthenticated redirects.
 
 ### Tests And Verification
 
-- [ ] Test valid login.
-- [ ] Test invalid username and password.
-- [ ] Test missing fields and validation responses.
-- [ ] Test protected routes without a session.
-- [ ] Test logout invalidates the session.
-- [ ] Test session expiration behavior.
-- [ ] Test browser login, refresh, board access, and logout.
+- [x] Test valid login.
+- [x] Test invalid username and password.
+- [x] Test missing fields and validation responses.
+- [x] Test protected routes without a session.
+- [x] Test logout invalidates the session.
+- [x] Test session expiration behavior.
+- [x] Test browser login, refresh, board access, and logout.
 
 ### Success Criteria
 
-- [ ] The board cannot be accessed without authentication.
-- [ ] The supplied credentials provide access.
-- [ ] Logout removes access immediately.
-- [ ] Authentication state survives a page refresh while the session is valid.
+- [x] The board cannot be accessed without authentication.
+- [x] The supplied credentials provide access.
+- [x] Logout removes access immediately.
+- [x] Authentication state survives a page refresh while the session is valid.
 
 ## Part 5: Kanban Backend API
 
