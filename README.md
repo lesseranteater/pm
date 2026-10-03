@@ -13,12 +13,13 @@ Available now:
 - Add, edit, delete, and move cards.
 - Static SvelteKit build served by FastAPI.
 - Health and example API endpoints.
+- SQLite schema creation and deterministic seed data.
 - Docker image and cross-platform start/stop scripts.
 
 Not implemented yet:
 
 - Authentication.
-- SQLite persistence.
+- Authenticated Kanban API persistence.
 - OpenRouter AI integration.
 
 These are planned phases documented in [`docs/PLAN.md`](docs/PLAN.md).

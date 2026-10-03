@@ -14,8 +14,12 @@ def make_frontend_build(tmp_path: Path) -> Path:
     return build_dir
 
 
+def make_client(tmp_path: Path) -> TestClient:
+    return TestClient(create_app(make_frontend_build(tmp_path), tmp_path / "app.db"))
+
+
 def test_health_endpoint(tmp_path: Path) -> None:
-    client = TestClient(create_app(make_frontend_build(tmp_path)))
+    client = make_client(tmp_path)
 
     response = client.get("/api/health")
 
@@ -24,7 +28,7 @@ def test_health_endpoint(tmp_path: Path) -> None:
 
 
 def test_example_endpoint(tmp_path: Path) -> None:
-    client = TestClient(create_app(make_frontend_build(tmp_path)))
+    client = make_client(tmp_path)
 
     response = client.get("/api/example")
 
@@ -33,7 +37,7 @@ def test_example_endpoint(tmp_path: Path) -> None:
 
 
 def test_frontend_root_serves_index(tmp_path: Path) -> None:
-    client = TestClient(create_app(make_frontend_build(tmp_path)))
+    client = make_client(tmp_path)
 
     response = client.get("/")
 
@@ -42,7 +46,7 @@ def test_frontend_root_serves_index(tmp_path: Path) -> None:
 
 
 def test_frontend_asset_is_served(tmp_path: Path) -> None:
-    client = TestClient(create_app(make_frontend_build(tmp_path)))
+    client = make_client(tmp_path)
 
     response = client.get("/_app/app.js")
 
@@ -51,7 +55,7 @@ def test_frontend_asset_is_served(tmp_path: Path) -> None:
 
 
 def test_unknown_frontend_route_uses_fallback(tmp_path: Path) -> None:
-    client = TestClient(create_app(make_frontend_build(tmp_path)))
+    client = make_client(tmp_path)
 
     response = client.get("/board")
 
@@ -60,7 +64,7 @@ def test_unknown_frontend_route_uses_fallback(tmp_path: Path) -> None:
 
 
 def test_api_routes_take_priority_over_frontend_fallback(tmp_path: Path) -> None:
-    client = TestClient(create_app(make_frontend_build(tmp_path)))
+    client = make_client(tmp_path)
 
     response = client.get("/api/health")
 
@@ -68,7 +72,7 @@ def test_api_routes_take_priority_over_frontend_fallback(tmp_path: Path) -> None
 
 
 def test_missing_frontend_build_returns_service_unavailable(tmp_path: Path) -> None:
-    client = TestClient(create_app(tmp_path / "missing"))
+    client = TestClient(create_app(tmp_path / "missing", tmp_path / "app.db"))
 
     response = client.get("/")
 

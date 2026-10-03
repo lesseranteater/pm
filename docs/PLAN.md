@@ -88,14 +88,14 @@
 
 ### Tasks
 
-- [ ] Add the proposed schema as `docs/database-schema.json`.
-- [ ] Document the database approach in `docs/DATABASE.md`.
-- [ ] Define tables for users, boards, columns, cards, and sessions.
-- [ ] Store explicit column and card ordering values.
-- [ ] Enforce one board per user and ownership relationships with foreign keys.
-- [ ] Add database initialization that creates the SQLite file and schema if absent.
-- [ ] Seed the hardcoded user and one five-column board with deterministic demo data.
-- [ ] Make initialization safe to run repeatedly.
+- [x] Add the proposed schema as `docs/database-schema.json`.
+- [x] Document the database approach in `docs/DATABASE.md`.
+- [x] Define tables for users, boards, columns, cards, and sessions.
+- [x] Store explicit column and card ordering values.
+- [x] Enforce one board per user and ownership relationships with foreign keys.
+- [x] Add database initialization that creates the SQLite file and schema if absent.
+- [x] Seed the hardcoded user and one five-column board with deterministic demo data.
+- [x] Make initialization safe to run repeatedly.
 
 ### Proposed Entities
 
@@ -107,17 +107,19 @@
 
 ### Tests And Verification
 
-- [ ] Create the database on a clean temporary path.
-- [ ] Verify schema creation and foreign-key enforcement.
-- [ ] Verify deterministic seed data.
-- [ ] Verify repeated initialization does not duplicate records.
-- [ ] Verify ordering survives initialization and reload.
+- [x] Create the database on a clean temporary path.
+- [x] Verify schema creation and foreign-key enforcement.
+- [x] Verify deterministic seed data.
+- [x] Verify repeated initialization does not duplicate records.
+- [x] Verify ordering survives initialization and reload.
+- [x] Verify FastAPI startup initializes the database.
+- [x] Verify the Docker container creates its database on startup.
 
 ### Success Criteria
 
-- [ ] The schema is approved and documented.
-- [ ] A new application instance creates a usable database automatically.
-- [ ] The seeded user owns exactly one board with five columns.
+- [x] The schema is approved and documented.
+- [x] A new application instance creates a usable database automatically.
+- [x] The seeded user owns exactly one board with five columns.
 
 ## Part 4: Authentication
 

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 
+from .database import DEFAULT_DATABASE_PATH, initialize_database
+from .main_paths import PROJECT_ROOT
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_FRONTEND_BUILD = PROJECT_ROOT / "frontend" / "build"
 
 
@@ -21,13 +23,22 @@ def _frontend_file(build_dir: Path, request_path: str) -> Path | None:
     return candidate if candidate.is_file() else None
 
 
-def create_app(frontend_build_dir: Path | str | None = None) -> FastAPI:
+def create_app(
+    frontend_build_dir: Path | str | None = None,
+    database_path: Path | str | None = None,
+) -> FastAPI:
     build_dir = Path(
         frontend_build_dir
         or os.environ.get("FRONTEND_BUILD_DIR", DEFAULT_FRONTEND_BUILD)
     ).resolve()
+    db_path = Path(database_path or os.environ.get("DATABASE_PATH", DEFAULT_DATABASE_PATH)).resolve()
 
-    app = FastAPI(title="Project Management MVP API", version="0.1.0")
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        initialize_database(db_path)
+        yield
+
+    app = FastAPI(title="Project Management MVP API", version="0.1.0", lifespan=lifespan)
 
     @app.get("/api/health", tags=["system"])
     async def health() -> dict[str, str]:
