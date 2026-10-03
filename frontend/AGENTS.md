@@ -100,12 +100,14 @@ requested, and verify every required user workflow before MVP handoff.
   components beside their route, and shared components in `src/lib/components/`.
 - Use `$lib/...` for shared imports and `src/lib/components/ui/` for UI primitives.
   Create helpers and directories only as needed.
-- Use `@sveltejs/adapter-node` for Node deployment and the `sveltekit()` Vite
-  plugin. Follow the selected SvelteKit version's configuration conventions.
+- Use `@sveltejs/adapter-static` and the `sveltekit()` Vite plugin. The
+  generated `build/` directory is served by FastAPI in production. Follow the
+  selected SvelteKit version's configuration conventions.
 - Extend `.svelte-kit/tsconfig.json` with `strict: true`. Do not edit generated
   configuration or suppress type, lint, or accessibility checks to hide errors.
-- Keep SSR enabled by default; isolate browser-only dependencies and access
-  browser APIs in browser-only lifecycle code, typically `onMount`.
+- Keep prerendering enabled for the static deployment; isolate browser-only
+  dependencies and access browser APIs in browser-only lifecycle code,
+  typically `onMount`.
 
 ### Svelte Conventions
 
@@ -159,12 +161,11 @@ requested, and verify every required user workflow before MVP handoff.
 
 - Keep the demo local. Introduce API clients and server integration only when
   requested; do not scaffold speculative backend layers.
-- When needed, use server `load` functions for private data and page form
-  actions for suitable mutations. Actions belong in `+page.server.ts`, not
-  `+layout.server.ts`; use the supplied `fetch` in loads and generated route types.
-- Use `use:enhance` for SvelteKit action forms, not arbitrary API endpoints.
-  Centralize repeated browser requests in a small typed client when necessary;
-  handle unsuccessful responses explicitly without imposing an error framework.
+- When backend integration is needed, use same-origin `/api` requests to
+  FastAPI. Keep private data, mutations, and secrets in the backend; do not add
+  SvelteKit server actions or endpoints to this static frontend. Centralize
+  repeated browser requests in a small typed client when necessary and handle
+  unsuccessful responses explicitly without imposing an error framework.
 - Keep secrets and privileged code in `src/lib/server/` or server-only files.
   Never import private environment modules into client code or return secrets
   in page data. Validate external data at the boundary; types alone do not do so.
@@ -190,7 +191,8 @@ pnpm test:e2e
 - Cover card creation, editing, deletion, movement, column renaming, empty
   columns, and keyboard interactions. Check narrow-screen and touch behavior.
 - Test end-to-end journeys against a production build. For deployment changes,
-  also smoke-test the Node adapter output; preview is not the production server.
+  also smoke-test the generated static output as served by the intended host;
+  preview does not verify FastAPI routing.
 - Keep tests deterministic. Mock external services unless a test explicitly
   provisions them; cover failure states when API integration is added.
 - Use `pnpm dev` for development and `pnpm preview` to inspect a build.
