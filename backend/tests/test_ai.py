@@ -11,7 +11,9 @@ class FakeAIClient:
         self.response = response
         self.messages: list[dict[str, str]] = []
 
-    def complete_json(self, messages: list[dict[str, str]]) -> dict[str, Any]:
+    def complete_json(
+        self, messages: list[dict[str, str]], schema: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         self.messages = messages
         return self.response
 

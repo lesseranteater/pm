@@ -40,6 +40,7 @@ class OpenRouterClient:
         self,
         messages: list[dict[str, str]],
         response_format: dict[str, Any] | None = None,
+        max_tokens: int = 128,
     ) -> str:
         if not self.api_key:
             raise OpenRouterError("OpenRouter is not configured", status.HTTP_503_SERVICE_UNAVAILABLE)
@@ -48,7 +49,7 @@ class OpenRouterClient:
             "model": OPENROUTER_MODEL,
             "messages": messages,
             "temperature": 0,
-            "max_tokens": 128,
+            "max_tokens": max_tokens,
         }
         if response_format is not None:
             payload["response_format"] = response_format
@@ -79,8 +80,26 @@ class OpenRouterClient:
             raise OpenRouterError("OpenRouter returned an invalid response", status.HTTP_502_BAD_GATEWAY)
         return content.strip()
 
-    def complete_json(self, messages: list[dict[str, str]]) -> dict[str, Any]:
-        content = self.complete_messages(messages, {"type": "json_object"})
+    def complete_json(
+        self,
+        messages: list[dict[str, str]],
+        schema: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        response_format: dict[str, Any]
+        if schema is None:
+            response_format = {"type": "json_object"}
+        else:
+            response_format = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "board_assistant_response",
+                    "strict": True,
+                    "schema": schema,
+                },
+            }
+        content = self.complete_messages(messages, response_format, max_tokens=512)
+        if content.startswith("```"):
+            content = content.removeprefix("```").removeprefix("json").removesuffix("```").strip()
         try:
             body = json.loads(content)
         except json.JSONDecodeError as error:

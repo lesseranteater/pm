@@ -1,9 +1,19 @@
 import type { Card, Column } from '$lib/board';
 
-type ApiBoard = {
+export type ApiBoard = {
   id: string;
   name: string;
   columns: Array<Column & { position: number }>;
+};
+
+export type AIMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+export type AIBoardResponse = {
+  response: string;
+  board: ApiBoard;
 };
 
 export class ApiError extends Error {
@@ -30,6 +40,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getBoard(): Promise<ApiBoard> {
   return request<ApiBoard>('/api/board');
+}
+
+export function askAssistant(question: string, history: AIMessage[]): Promise<AIBoardResponse> {
+  return request<AIBoardResponse>('/api/ai/board', {
+    method: 'POST',
+    body: JSON.stringify({ question, history })
+  });
 }
 
 export function renameColumn(columnId: string, name: string): Promise<ApiBoard> {

@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function mockAuth(page: Page, initiallyAuthenticated: boolean) {
   let authenticated = initiallyAuthenticated;
+  let aiFailures = 0;
   const board = {
     id: 'board-mvp',
     name: 'Spring launch',
@@ -47,6 +48,44 @@ async function mockAuth(page: Page, initiallyAuthenticated: boolean) {
       status: 200,
       contentType: 'application/json',
       body: '{"logged_out":true}'
+    });
+  });
+  await page.route('**/api/ai/board', async (route) => {
+    const request = JSON.parse(route.request().postData() ?? '{}') as { question?: string };
+    const question = request.question ?? '';
+    if (question.includes('fail') && aiFailures++ === 0) {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'Assistant temporarily unavailable' })
+      });
+      return;
+    }
+    if (question.includes('slow')) await new Promise((resolve) => setTimeout(resolve, 250));
+    const source = board.columns.find((column) =>
+      column.cards.some((card) => card.id === 'card-brief')
+    );
+    const card = source?.cards.find((item) => item.id === 'card-brief');
+    if (source && card) {
+      source.cards = source.cards.filter((item) => item.id !== card.id);
+      board.columns.find((column) => column.id === 'column-progress')?.cards.push(card);
+    }
+    if (question.includes('multiple')) {
+      const review = board.columns.find((column) => column.id === 'column-review');
+      if (review) {
+        review.name = 'Ready';
+        review.cards.push({
+          id: 'card-ai-created',
+          title: 'AI follow-up',
+          details: 'Created by the assistant',
+          position: 0
+        });
+      }
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ response: 'I moved the brief into progress.', board })
     });
   });
   await page.route('**/api/board', async (route) => {
@@ -217,4 +256,56 @@ test('preserves a new-card draft when the API fails', async ({ page }) => {
   await expect(
     page.locator('p.login-error').filter({ hasText: 'Board service unavailable' })
   ).toBeVisible();
+});
+
+test('opens the assistant and refreshes the board after an AI move', async ({ page }) => {
+  await mockAuth(page, true);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Make the next move.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Ask Northstar' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByLabel('Ask about your board').fill('Move the brief into progress');
+  await page.getByRole('dialog').getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByText('I moved the brief into progress.')).toBeVisible();
+  await expect(page.getByLabel('Move Shape the product brief to')).toHaveValue('column-progress');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel('Move Shape the product brief to')).toHaveValue('column-progress');
+});
+
+test('applies multiple AI board updates together', async ({ page }) => {
+  await mockAuth(page, true);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Make the next move.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Ask Northstar' }).click();
+  await page.getByLabel('Ask about your board').fill('make multiple updates');
+  await page.getByRole('dialog').getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByRole('heading', { name: 'Ready' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'AI follow-up' })).toBeVisible();
+});
+
+test('preserves an AI question after an error and allows retry', async ({ page }) => {
+  await mockAuth(page, true);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Make the next move.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Ask Northstar' }).click();
+  await page.getByLabel('Ask about your board').fill('fail then retry');
+  await page.getByRole('dialog').getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByRole('alert')).toContainText('Assistant temporarily unavailable');
+  await expect(page.getByLabel('Ask about your board')).toHaveValue('fail then retry');
+  await page.getByRole('dialog').getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByText('I moved the brief into progress.')).toBeVisible();
+});
+
+test('prevents duplicate assistant submissions while pending', async ({ page }) => {
+  await mockAuth(page, true);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Make the next move.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Ask Northstar' }).click();
+  await page.getByLabel('Ask about your board').fill('slow request');
+  const send = page.getByRole('dialog').getByRole('button', { name: 'Send' });
+  await send.click();
+  await expect(page.getByRole('button', { name: 'Thinking…' })).toBeDisabled();
+  await expect(page.getByText('I moved the brief into progress.')).toBeVisible();
 });

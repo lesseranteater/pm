@@ -273,7 +273,7 @@ def register_ai_routes(
         try:
             with connect(database_path) as connection:
                 board = _board_response(connection, user["id"])
-                raw_response = client.complete_json(_prompt(board, request))
+                raw_response = client.complete_json(_prompt(board, request), AIResponse.model_json_schema())
                 parsed_response = AIResponse.model_validate(raw_response)
                 _validate_operations(connection, user["id"], parsed_response.operations)
                 _apply_operations(connection, user["id"], parsed_response.operations)

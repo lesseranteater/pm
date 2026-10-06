@@ -266,27 +266,27 @@
 
 ### Tasks
 
-- [ ] Add an accessible responsive chat sidebar to the SvelteKit UI.
-- [ ] Display conversation history, pending state, and errors.
-- [ ] Submit authenticated questions to the backend.
-- [ ] Display assistant responses.
-- [ ] Refresh the board automatically after AI mutations.
-- [ ] Prevent duplicate submissions while a request is pending.
-- [ ] Support keyboard and narrow-screen use.
+- [x] Add an accessible responsive chat sidebar to the SvelteKit UI.
+- [x] Display conversation history, pending state, and errors.
+- [x] Submit authenticated questions to the backend.
+- [x] Display assistant responses.
+- [x] Refresh the board automatically after AI mutations.
+- [x] Prevent duplicate submissions while a request is pending.
+- [x] Support keyboard and narrow-screen use.
 
 ### Tests And Verification
 
-- [ ] Test opening and closing the sidebar.
-- [ ] Test submitting a question and displaying the response.
-- [ ] Test backend errors and retry behavior.
-- [ ] Test one AI board update.
-- [ ] Test multiple AI board updates.
-- [ ] Verify the board refreshes without a full page reload.
+- [x] Test opening and closing the sidebar.
+- [x] Test submitting a question and displaying the response.
+- [x] Test backend errors and retry behavior.
+- [x] Test one AI board update.
+- [x] Test multiple AI board updates.
+- [x] Verify the board refreshes without a full page reload.
 
 ### Success Criteria
 
-- [ ] Users can manage the board manually and through AI chat.
-- [ ] AI changes are visible immediately and remain persisted after reload.
+- [x] Users can manage the board manually and through AI chat.
+- [x] AI changes are visible immediately and remain persisted after reload.
 
 ## Part 10: Final Container And Release Verification
 

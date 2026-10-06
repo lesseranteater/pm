@@ -26,11 +26,21 @@
   let newTitle = $state('');
   let newDetails = $state('');
   let statusMessage = $state('');
+  let aiOpen = $state(false);
+  let aiPending = $state(false);
+  let aiQuestion = $state('');
+  let aiError = $state('');
+  let aiInput = $state<globalThis.HTMLTextAreaElement>();
+  let aiMessages = $state<api.AIMessage[]>([]);
 
   const cardCount = $derived(columns.reduce((total, column) => total + column.cards.length, 0));
 
   onMount(() => {
     void loadSession();
+  });
+
+  $effect(() => {
+    if (aiOpen) globalThis.queueMicrotask(() => aiInput?.focus());
   });
 
   async function loadSession() {
@@ -100,6 +110,44 @@
     columns = [];
     signedInUsername = '';
     authStatus = 'signed-out';
+    aiOpen = false;
+    aiMessages = [];
+  }
+
+  function openAssistant() {
+    aiOpen = true;
+    aiError = '';
+  }
+
+  function closeAssistant() {
+    if (!aiPending) aiOpen = false;
+  }
+
+  async function submitAssistant(event: globalThis.SubmitEvent) {
+    event.preventDefault();
+    const question = aiQuestion.trim();
+    if (!question || aiPending) return;
+    const history = [...aiMessages];
+    aiMessages = [...aiMessages, { role: 'user', content: question }];
+    aiQuestion = '';
+    aiError = '';
+    aiPending = true;
+    try {
+      const result = await api.askAssistant(question, history);
+      columns = api.toColumns(result.board);
+      aiMessages = [...aiMessages, { role: 'assistant', content: result.response }];
+      statusMessage = 'Board updated by Northstar';
+    } catch (error) {
+      aiMessages = history;
+      aiQuestion = question;
+      aiError = error instanceof Error ? error.message : 'Unable to reach the assistant';
+      if (error instanceof api.ApiError && error.status === 401) {
+        handleApiError(error, 'Your session expired. Please sign in again.');
+        aiOpen = false;
+      }
+    } finally {
+      aiPending = false;
+    }
   }
 
   function findCard(cardId: string): { card: Card; column: Column } | null {
@@ -246,6 +294,8 @@
   <meta name="description" content="A focused, lightweight Kanban board for moving work forward." />
 </svelte:head>
 
+<svelte:window onkeydown={(event) => event.key === 'Escape' && closeAssistant()} />
+
 <div class="app-shell">
   <header class="topbar">
     <a class="brand" href={resolve('/')} aria-label="Northstar Board home">
@@ -321,7 +371,17 @@
 
       <div class="toolbar">
         <div class="toolbar-label"><span class="yellow-dot"></span> Your board</div>
-        <p>Drag cards to move them, or use the move menu on each card.</p>
+        <div class="toolbar-actions">
+          <p>Drag cards to move them, or use the move menu on each card.</p>
+          <button
+            class="assistant-trigger"
+            type="button"
+            onclick={openAssistant}
+            aria-expanded={aiOpen}
+          >
+            Ask Northstar
+          </button>
+        </div>
       </div>
 
       {#if boardPending}
@@ -513,6 +573,71 @@
         {/each}
       </section>
     </main>
+  {/if}
+
+  {#if aiOpen}
+    <button class="ai-backdrop" type="button" aria-label="Close assistant" onclick={closeAssistant}
+    ></button>
+    <dialog open class="ai-sidebar" aria-labelledby="assistant-title">
+      <header class="ai-header">
+        <div>
+          <span class="ai-kicker">Board copilot</span>
+          <h2 id="assistant-title">Ask Northstar</h2>
+        </div>
+        <button
+          class="icon-button"
+          type="button"
+          aria-label="Close assistant"
+          onclick={closeAssistant}>×</button
+        >
+      </header>
+      <div class="ai-messages" aria-live="polite">
+        {#if aiMessages.length === 0}
+          <div class="ai-empty">
+            <span class="ai-spark" aria-hidden="true">✦</span>
+            <p>Ask me to organize the board, move work, or clarify your next step.</p>
+          </div>
+        {/if}
+        {#each aiMessages as message, index (`${message.role}-${index}`)}
+          <div class:ai-user={message.role === 'user'} class="ai-message">
+            <span class="ai-message-role">{message.role === 'user' ? 'You' : 'Northstar'}</span>
+            <p>{message.content}</p>
+          </div>
+        {/each}
+        {#if aiPending}
+          <div class="ai-message ai-assistant-pending" aria-label="Northstar is thinking">
+            <span class="ai-message-role">Northstar</span>
+            <p>
+              <span class="thinking-dot"></span><span class="thinking-dot"></span><span
+                class="thinking-dot"
+              ></span>
+            </p>
+          </div>
+        {/if}
+      </div>
+      <form class="ai-form" onsubmit={submitAssistant}>
+        {#if aiError}<p class="login-error" role="alert">{aiError}</p>{/if}
+        <label class="sr-only" for="assistant-question">Ask about your board</label>
+        <textarea
+          id="assistant-question"
+          bind:this={aiInput}
+          bind:value={aiQuestion}
+          rows="3"
+          maxlength="2000"
+          placeholder="What should we tackle next?"
+          disabled={aiPending}></textarea>
+        <div class="ai-form-footer">
+          <span>{aiPending ? 'Working on it…' : 'Enter a request'}</span>
+          <button
+            class="button button-primary"
+            type="submit"
+            disabled={aiPending || !aiQuestion.trim()}
+          >
+            {aiPending ? 'Thinking…' : 'Send'}
+          </button>
+        </div>
+      </form>
+    </dialog>
   {/if}
 
   <p class="sr-only" aria-live="polite">{statusMessage}</p>

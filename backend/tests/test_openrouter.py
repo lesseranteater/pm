@@ -113,6 +113,29 @@ def test_upstream_and_invalid_responses_are_mapped_safely(tmp_path: Path) -> Non
     assert invalid.json() == {"detail": "OpenRouter returned an invalid response"}
 
 
+def test_structured_json_uses_schema_and_accepts_fenced_json() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "```json\n{\"ok\": true}\n```"}}]},
+            request=request,
+        )
+
+    client = OpenRouterClient(api_key="secret", transport=httpx.MockTransport(handler))
+    result = client.complete_json(
+        [{"role": "user", "content": "Return JSON."}],
+        {"type": "object", "properties": {"ok": {"type": "boolean"}}},
+    )
+
+    assert result == {"ok": True}
+    payload = requests[0].read().decode()
+    assert '"type":"json_schema"' in payload
+    assert '"max_tokens":512' in payload
+
+
 @pytest.mark.skipif(
     not os.environ.get("OPENROUTER_API_KEY"),
     reason="Set OPENROUTER_API_KEY to run the optional live connectivity test",
