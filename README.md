@@ -23,9 +23,8 @@ Available now:
 - Responsive AI board assistant with conversation history and retry handling.
 - Docker image and cross-platform start/stop scripts.
 
-Not implemented yet:
-
-- Final container and release verification.
+The approved MVP roadmap is complete through Part 10. The remaining roadmap
+items are optional future enhancements outside the MVP.
 
 These are planned phases documented in [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -166,12 +165,19 @@ docker run --rm -p 8000:8000 project-management-mvp
 Open `http://localhost:8000/`.
 
 The image builds the SvelteKit frontend in a Node build stage, then runs only
-FastAPI in the final Python image. The `/app/data` volume is reserved for the
-SQLite database planned in a later phase:
+FastAPI in the final Python image. SQLite data persists in the mounted
+`/app/data` volume:
 
 ```bash
-docker run --rm -p 8000:8000 -v pm_data:/app/data project-management-mvp
+docker run --rm -p 8000:8000 \
+  --env-file .env \
+  -v pm_data:/app/data \
+  project-management-mvp
 ```
+
+The `.env` file is excluded from the image build context. Pass secrets at
+runtime only. See [`docs/RELEASE.md`](docs/RELEASE.md) for release verification
+and persistence checks.
 
 ## Project Structure
 

@@ -292,29 +292,29 @@
 
 ### Tasks
 
-- [ ] Build the static frontend as part of the Docker build.
-- [ ] Serve the built frontend and FastAPI routes from one container.
-- [ ] Store SQLite data in a documented mounted volume.
-- [ ] Pass environment variables safely without baking secrets into the image.
-- [ ] Verify start and stop scripts on supported platforms.
-- [ ] Update README files with development, testing, build, and container commands.
-- [ ] Review logs for accidental secrets and excessive sensitive data.
+- [x] Build the static frontend as part of the Docker build.
+- [x] Serve the built frontend and FastAPI routes from one container.
+- [x] Store SQLite data in a documented mounted volume.
+- [x] Pass environment variables safely without baking secrets into the image.
+- [x] Verify start and stop scripts on supported platforms.
+- [x] Update README files with development, testing, build, and container commands.
+- [x] Review logs for accidental secrets and excessive sensitive data.
 
 ### Tests And Verification
 
-- [ ] Build from a clean checkout.
-- [ ] Start the container with an empty data volume.
-- [ ] Complete login and all core board workflows.
-- [ ] Restart the container and verify data survives with the volume retained.
-- [ ] Verify the AI path with mocked upstream responses.
-- [ ] Verify the frontend, API, authentication, database, and AI boundaries together.
+- [x] Build from a clean checkout.
+- [x] Start the container with an empty data volume.
+- [x] Complete login and all core board workflows.
+- [x] Restart the container and verify data survives with the volume retained.
+- [x] Verify the AI path with mocked upstream responses.
+- [x] Verify the frontend, API, authentication, database, and AI boundaries together.
 
 ### Success Criteria
 
-- [ ] A clean checkout can build and start the complete application.
-- [ ] SQLite data survives container restarts when its volume is retained.
-- [ ] The complete authenticated Kanban and AI workflows pass in the container.
-- [ ] Known limitations and verification results are documented.
+- [x] A clean checkout can build and start the complete application.
+- [x] SQLite data survives container restarts when its volume is retained.
+- [x] The complete authenticated Kanban and AI workflows pass in the container.
+- [x] Known limitations and verification results are documented.
 
 ## Approval Gates
 
