@@ -16,6 +16,7 @@ from .auth import (
     get_user_for_session,
     verify_password,
 )
+from .board import register_board_routes
 from .database import DEFAULT_DATABASE_PATH, connect, initialize_database
 from .main_paths import PROJECT_ROOT
 
@@ -107,6 +108,8 @@ def create_app(
             path="/",
         )
         return {"logged_out": True}
+
+    register_board_routes(app, db_path, require_user)
 
     @app.get("/api/health", tags=["system"])
     async def health() -> dict[str, str]:

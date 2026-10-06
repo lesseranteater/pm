@@ -6,7 +6,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: process.env.BASE_URL ?? process.env.PRODUCTION_BASE_URL ?? 'http://127.0.0.1:4173',
     trace: 'on-first-retry',
     ...devices['Desktop Chrome']
   },

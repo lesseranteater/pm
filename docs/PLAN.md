@@ -155,58 +155,58 @@
 
 ### Tasks
 
-- [ ] Add an authenticated endpoint to read the current user's board.
-- [ ] Add endpoints to rename columns, create cards, edit cards, delete cards,
+- [x] Add an authenticated endpoint to read the current user's board.
+- [x] Add endpoints to rename columns, create cards, edit cards, delete cards,
       and move cards.
-- [ ] Validate title, details, IDs, column membership, and ordering inputs.
-- [ ] Enforce board ownership for every operation.
-- [ ] Define consistent JSON response and error formats.
-- [ ] Apply card moves without losing ordering or cards.
-- [ ] Use transactions for mutations that update multiple records.
+- [x] Validate title, details, IDs, column membership, and ordering inputs.
+- [x] Enforce board ownership for every operation.
+- [x] Define consistent JSON response and error formats.
+- [x] Apply card moves without losing ordering or cards.
+- [x] Use transactions for mutations that update multiple records.
 
 ### Tests And Verification
 
-- [ ] Test every endpoint with valid input.
-- [ ] Test invalid input and missing resources.
-- [ ] Test cross-user access prevention.
-- [ ] Test card ordering after moves.
-- [ ] Test column rename persistence.
-- [ ] Test database persistence after application restart.
-- [ ] Test transaction rollback on mutation failure.
+- [x] Test every endpoint with valid input.
+- [x] Test invalid input and missing resources.
+- [x] Test cross-user access prevention.
+- [x] Test card ordering after moves.
+- [x] Test column rename persistence.
+- [x] Test database persistence after application restart.
+- [x] Test transaction rollback on mutation failure.
 
 ### Success Criteria
 
-- [ ] All required Kanban operations are available through authenticated API routes.
-- [ ] Changes persist in SQLite.
-- [ ] A user cannot read or modify another user's board.
+- [x] All required Kanban operations are available through authenticated API routes.
+- [x] Changes persist in SQLite.
+- [x] A user cannot read or modify another user's board.
 
 ## Part 6: Frontend And Backend Integration
 
 ### Tasks
 
-- [ ] Replace frontend-only board state with the FastAPI board API.
-- [ ] Keep browser requests same-origin through `/api`.
-- [ ] Centralize repeated requests in a small typed API client.
-- [ ] Load board data after authentication.
-- [ ] Refresh or reconcile state after successful mutations.
-- [ ] Add loading, empty, saving, and error states.
-- [ ] Preserve unsaved form input after failed requests.
-- [ ] Ensure the static frontend build is served correctly by FastAPI.
+- [x] Replace frontend-only board state with the FastAPI board API.
+- [x] Keep browser requests same-origin through `/api`.
+- [x] Centralize repeated requests in a small typed API client.
+- [x] Load board data after authentication.
+- [x] Refresh or reconcile state after successful mutations.
+- [x] Add loading, empty, saving, and error states.
+- [x] Preserve unsaved form input after failed requests.
+- [x] Ensure the static frontend build is served correctly by FastAPI.
 
 ### Tests And Verification
 
-- [ ] Test loading the board from the API.
-- [ ] Test add, edit, delete, move, and rename through the UI.
-- [ ] Reload after each mutation and verify persistence.
-- [ ] Test unauthorized API responses and login recovery.
-- [ ] Test API failures and preserved input.
-- [ ] Run browser tests against the production container.
+- [x] Test loading the board from the API.
+- [x] Test add, edit, delete, move, and rename through the UI.
+- [x] Reload after each mutation and verify persistence.
+- [x] Test unauthorized API responses and login recovery.
+- [x] Test API failures and preserved input.
+- [x] Run browser tests against the production container.
 
 ### Success Criteria
 
-- [ ] The board is persistent and API-backed.
-- [ ] Refreshing the application preserves changes.
-- [ ] Existing accessibility and responsive workflows remain functional.
+- [x] The board is persistent and API-backed.
+- [x] Refreshing the application preserves changes.
+- [x] Existing accessibility and responsive workflows remain functional.
 
 ## Part 7: OpenRouter Connectivity
 

@@ -5,7 +5,8 @@ FastAPI backend. The frontend is built as static files and served by FastAPI.
 
 ## Current Status
 
-The frontend demo and Part 2 backend/Docker scaffolding are complete.
+The frontend demo, backend persistence foundation, and Part 6 API integration
+are complete. AI remains.
 
 Available now:
 
@@ -15,12 +16,11 @@ Available now:
 - Health and example API endpoints.
 - SQLite schema creation and deterministic seed data.
 - Hardcoded login with server-side SQLite sessions.
+- Authenticated persistent Kanban API for board and card operations.
 - Docker image and cross-platform start/stop scripts.
 
 Not implemented yet:
 
-- Authentication.
-- Persistent Kanban API integration.
 - OpenRouter AI integration.
 
 These are planned phases documented in [`docs/PLAN.md`](docs/PLAN.md).
