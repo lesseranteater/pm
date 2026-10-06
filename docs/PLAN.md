@@ -132,7 +132,7 @@
 - [x] Add an authenticated-user dependency for protected routes.
 - [x] Avoid returning passwords, session tokens, or secret configuration.
 - [x] Add a SvelteKit login view and protect the board view.
-- [ ] Add logout behavior and unauthenticated redirects.
+- [x] Add logout behavior and unauthenticated redirects.
 
 ### Tests And Verification
 
