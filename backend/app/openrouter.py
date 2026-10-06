@@ -40,7 +40,7 @@ class OpenRouterClient:
             "model": OPENROUTER_MODEL,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0,
-            "max_tokens": 32,
+            "max_tokens": 128,
         }
         try:
             with httpx.Client(timeout=self.timeout_seconds, transport=self.transport) as client:

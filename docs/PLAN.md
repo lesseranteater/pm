@@ -225,7 +225,7 @@
 - [x] Mock timeout and upstream failure responses.
 - [x] Test missing API key behavior.
 - [x] Test invalid upstream response handling.
-- [ ] Run the optional live `2+2` connectivity test when credentials are available.
+- [x] Run the optional live `2+2` connectivity test when credentials are available.
 
 ### Success Criteria
 
