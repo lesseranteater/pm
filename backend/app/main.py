@@ -19,6 +19,7 @@ from .auth import (
 from .board import register_board_routes
 from .database import DEFAULT_DATABASE_PATH, connect, initialize_database
 from .main_paths import PROJECT_ROOT
+from .openrouter import OpenRouterClient, register_openrouter_routes
 
 DEFAULT_FRONTEND_BUILD = PROJECT_ROOT / "frontend" / "build"
 
@@ -41,6 +42,7 @@ def _frontend_file(build_dir: Path, request_path: str) -> Path | None:
 def create_app(
     frontend_build_dir: Path | str | None = None,
     database_path: Path | str | None = None,
+    openrouter_client: OpenRouterClient | None = None,
 ) -> FastAPI:
     build_dir = Path(
         frontend_build_dir
@@ -110,6 +112,7 @@ def create_app(
         return {"logged_out": True}
 
     register_board_routes(app, db_path, require_user)
+    register_openrouter_routes(app, require_user, openrouter_client or OpenRouterClient())
 
     @app.get("/api/health", tags=["system"])
     async def health() -> dict[str, str]:

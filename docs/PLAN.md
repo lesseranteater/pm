@@ -212,26 +212,26 @@
 
 ### Tasks
 
-- [ ] Add an OpenRouter client in the backend.
-- [ ] Read `OPENROUTER_API_KEY` only from server environment configuration.
-- [ ] Use `openai/gpt-oss-120b`.
-- [ ] Add request timeouts and clear upstream error handling.
-- [ ] Add a backend-only connectivity operation for the `2+2` test.
-- [ ] Keep live connectivity tests opt-in when an API key is present.
+- [x] Add an OpenRouter client in the backend.
+- [x] Read `OPENROUTER_API_KEY` only from server environment configuration.
+- [x] Use `openai/gpt-oss-120b`.
+- [x] Add request timeouts and clear upstream error handling.
+- [x] Add a backend-only connectivity operation for the `2+2` test.
+- [x] Keep live connectivity tests opt-in when an API key is present.
 
 ### Tests And Verification
 
-- [ ] Mock a successful OpenRouter response.
-- [ ] Mock timeout and upstream failure responses.
-- [ ] Test missing API key behavior.
-- [ ] Test invalid upstream response handling.
+- [x] Mock a successful OpenRouter response.
+- [x] Mock timeout and upstream failure responses.
+- [x] Test missing API key behavior.
+- [x] Test invalid upstream response handling.
 - [ ] Run the optional live `2+2` connectivity test when credentials are available.
 
 ### Success Criteria
 
-- [ ] The backend can make a valid OpenRouter request.
-- [ ] Secrets never enter frontend code, API responses, or committed files.
-- [ ] Default tests do not require a live API key.
+- [x] The backend can make a valid OpenRouter request.
+- [x] Secrets never enter frontend code, API responses, or committed files.
+- [x] Default tests do not require a live API key.
 
 ## Part 8: Structured AI Board Operations
 
