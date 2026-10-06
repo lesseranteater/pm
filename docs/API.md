@@ -81,6 +81,24 @@ Request:
 Moves an owned card and compacts both source and destination columns. Omit
 `position` to append to the destination column.
 
+### `POST /api/ai/board`
+
+Request:
+
+```json
+{
+  "question": "Move the research card into progress.",
+  "history": [
+    { "role": "user", "content": "What should I do next?" },
+    { "role": "assistant", "content": "Review the planned work." }
+  ]
+}
+```
+
+Returns the assistant response and updated board. The structured response
+contract and supported operations are documented in
+[`AI-OPERATIONS.md`](AI-OPERATIONS.md).
+
 ## Errors
 
 - `401`: no valid authenticated session.

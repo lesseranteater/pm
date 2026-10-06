@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -33,15 +34,24 @@ class OpenRouterClient:
         self.transport = transport
 
     def complete(self, prompt: str) -> str:
+        return self.complete_messages([{"role": "user", "content": prompt}])
+
+    def complete_messages(
+        self,
+        messages: list[dict[str, str]],
+        response_format: dict[str, Any] | None = None,
+    ) -> str:
         if not self.api_key:
             raise OpenRouterError("OpenRouter is not configured", status.HTTP_503_SERVICE_UNAVAILABLE)
 
         payload = {
             "model": OPENROUTER_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages,
             "temperature": 0,
             "max_tokens": 128,
         }
+        if response_format is not None:
+            payload["response_format"] = response_format
         try:
             with httpx.Client(timeout=self.timeout_seconds, transport=self.transport) as client:
                 response = client.post(
@@ -68,6 +78,16 @@ class OpenRouterClient:
         if not isinstance(content, str) or not content.strip():
             raise OpenRouterError("OpenRouter returned an invalid response", status.HTTP_502_BAD_GATEWAY)
         return content.strip()
+
+    def complete_json(self, messages: list[dict[str, str]]) -> dict[str, Any]:
+        content = self.complete_messages(messages, {"type": "json_object"})
+        try:
+            body = json.loads(content)
+        except json.JSONDecodeError as error:
+            raise OpenRouterError("OpenRouter returned invalid JSON", status.HTTP_502_BAD_GATEWAY) from error
+        if not isinstance(body, dict):
+            raise OpenRouterError("OpenRouter returned invalid JSON", status.HTTP_502_BAD_GATEWAY)
+        return body
 
 
 def register_openrouter_routes(

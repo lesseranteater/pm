@@ -237,30 +237,30 @@
 
 ### Tasks
 
-- [ ] Define and document the structured AI response schema.
-- [ ] Include assistant response text and optional board operations.
-- [ ] Send the current board JSON, user question, and conversation history.
-- [ ] Support create, edit, move, delete, and column rename operations.
-- [ ] Validate the complete AI response before applying changes.
-- [ ] Reject unknown IDs, invalid fields, unauthorized changes, and conflicting operations.
-- [ ] Apply multiple valid operations transactionally.
-- [ ] Return the assistant response and updated board state.
+- [x] Define and document the structured AI response schema.
+- [x] Include assistant response text and optional board operations.
+- [x] Send the current board JSON, user question, and conversation history.
+- [x] Support create, edit, move, delete, and column rename operations.
+- [x] Validate the complete AI response before applying changes.
+- [x] Reject unknown IDs, invalid fields, unauthorized changes, and conflicting operations.
+- [x] Apply multiple valid operations transactionally.
+- [x] Return the assistant response and updated board state.
 
 ### Tests And Verification
 
-- [ ] Test a valid response with no board changes.
-- [ ] Test each supported operation.
-- [ ] Test multiple operations in one response.
-- [ ] Test malformed structured output.
-- [ ] Test unknown IDs and invalid values.
-- [ ] Test rollback when one operation in a batch fails.
-- [ ] Test conversation history forwarding.
+- [x] Test a valid response with no board changes.
+- [x] Test each supported operation.
+- [x] Test multiple operations in one response.
+- [x] Test malformed structured output.
+- [x] Test unknown IDs and invalid values.
+- [x] Test rollback when one operation in a batch fails.
+- [x] Test conversation history forwarding.
 
 ### Success Criteria
 
-- [ ] AI output cannot corrupt persisted board state.
-- [ ] Invalid output produces no partial mutation.
-- [ ] Valid multi-card changes are applied consistently.
+- [x] AI output cannot corrupt persisted board state.
+- [x] Invalid output produces no partial mutation.
+- [x] Valid multi-card changes are applied consistently.
 
 ## Part 9: AI Sidebar
 

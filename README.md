@@ -5,9 +5,9 @@ FastAPI backend. The frontend is built as static files and served by FastAPI.
 
 ## Current Status
 
-The frontend demo, backend persistence foundation, Part 6 API integration, and
-Part 7 OpenRouter connectivity are complete. Structured AI board operations
-remain.
+The frontend demo, backend persistence foundation, Part 6 API integration, Part
+7 OpenRouter connectivity, and Part 8 structured AI board operations are
+complete. The AI sidebar remains.
 
 Available now:
 
@@ -19,11 +19,12 @@ Available now:
 - Hardcoded login with server-side SQLite sessions.
 - Authenticated persistent Kanban API for board and card operations.
 - Server-side OpenRouter connectivity check using `openai/gpt-oss-120b`.
+- Transactional structured AI board operations with validation.
 - Docker image and cross-platform start/stop scripts.
 
 Not implemented yet:
 
-- Structured AI board operations.
+- AI chat sidebar.
 
 These are planned phases documented in [`docs/PLAN.md`](docs/PLAN.md).
 
