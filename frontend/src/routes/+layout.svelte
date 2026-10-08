@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import '../app.css';
@@ -11,8 +10,10 @@
   let { children } = $props();
 
   function executeSelectedScript() {
-    void goto(resolve(selectedScript));
+    const scriptSelector = document.getElementById('script') as HTMLSelectElement;
+    window.location.assign(resolve(scriptSelector.value as ScriptRoute));
   }
+
 </script>
 
 <div class="app-shell">

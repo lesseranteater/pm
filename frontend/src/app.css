@@ -96,6 +96,7 @@ label {
 
 input,
 select,
+textarea,
 button {
   min-height: 2.5rem;
   padding: 0.5rem 0.75rem;
@@ -119,6 +120,38 @@ button:disabled {
 
 .script-selector button {
   margin-top: 0;
+}
+
+fieldset {
+  display: flex;
+  gap: 1rem;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid #94a3b8;
+  border-radius: 0.375rem;
+}
+
+fieldset label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 400;
+}
+
+fieldset input {
+  min-height: auto;
+  padding: 0;
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  margin-top: 0.5rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
 }
 
 ul {

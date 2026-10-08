@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 from .main_paths import PROJECT_ROOT
+from .release_semantic_version import release_semantic_version
 from .service_versions import (
     ServiceVersion,
     get_service_versions_without_release_date,
@@ -37,6 +38,22 @@ class ServiceVersionRequest(BaseModel):
         return value
 
 
+class SemanticReleaseRequest(BaseModel):
+    version_name: str = Field(min_length=1, max_length=120)
+    is_dry_run: bool
+
+    @field_validator("version_name")
+    @classmethod
+    def validate_version_name(cls, value: str) -> str:
+        if not is_semantic_release_version(value):
+            raise ValueError("Deployment version is not supported")
+        return value
+
+
+class SemanticReleaseResponse(BaseModel):
+    log: str
+
+
 def _frontend_file(build_dir: Path, request_path: str) -> Path | None:
     """Return a safe file inside the frontend build directory, if it exists."""
     candidate = (build_dir / request_path).resolve()
@@ -50,6 +67,7 @@ def _frontend_file(build_dir: Path, request_path: str) -> Path | None:
 def create_app(
     frontend_build_dir: Path | str | None = None,
     service_version_reporter: Callable[[str, str], list[ServiceVersion]] = get_service_versions_without_release_date,
+    semantic_version_releaser: Callable[[str, bool], str] = release_semantic_version,
 ) -> FastAPI:
     build_dir = Path(
         frontend_build_dir or os.environ.get("FRONTEND_BUILD_DIR", DEFAULT_FRONTEND_BUILD)
@@ -72,6 +90,19 @@ def create_app(
             raise HTTPException(
                 status_code=503,
                 detail="Unable to retrieve service versions from Jira",
+            ) from None
+
+    @app.post("/api/release-semantic-version", tags=["release-semantic-version"])
+    async def release_version(request: SemanticReleaseRequest) -> SemanticReleaseResponse:
+        try:
+            return SemanticReleaseResponse(
+                log=semantic_version_releaser(request.version_name, request.is_dry_run)
+            )
+        except Exception:
+            log.exception("Unable to release semantic version")
+            raise HTTPException(
+                status_code=503,
+                detail="Unable to release semantic version",
             ) from None
 
     @app.get("/{request_path:path}", include_in_schema=False)

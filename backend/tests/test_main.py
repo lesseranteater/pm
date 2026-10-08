@@ -15,8 +15,18 @@ def make_frontend_build(tmp_path: Path) -> Path:
     return build_dir
 
 
-def make_client(tmp_path: Path, service_version_reporter=lambda project_key, release_version: []) -> TestClient:
-    return TestClient(create_app(make_frontend_build(tmp_path), service_version_reporter))
+def make_client(
+    tmp_path: Path,
+    service_version_reporter=lambda project_key, release_version: [],
+    semantic_version_releaser=lambda version_name, is_dry_run: "",
+) -> TestClient:
+    return TestClient(
+        create_app(
+            make_frontend_build(tmp_path),
+            service_version_reporter,
+            semantic_version_releaser,
+        )
+    )
 
 
 def test_health_endpoint(tmp_path: Path) -> None:
@@ -65,6 +75,32 @@ def test_service_versions_endpoint_rejects_invalid_parameters(tmp_path: Path) ->
     response = make_client(tmp_path).post(
         "/api/service-versions",
         json={"project_key": "IGM OR 1=1", "release_version": "not-a-release"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_release_semantic_version_returns_the_captured_log(tmp_path: Path) -> None:
+    requests = []
+
+    def release(version_name: str, is_dry_run: bool) -> str:
+        requests.append((version_name, is_dry_run))
+        return "DRY RUN: would release version"
+
+    response = make_client(tmp_path, semantic_version_releaser=release).post(
+        "/api/release-semantic-version",
+        json={"version_name": "Hotfix.ps-dev-1.26.4.3", "is_dry_run": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"log": "DRY RUN: would release version"}
+    assert requests == [("Hotfix.ps-dev-1.26.4.3", True)]
+
+
+def test_release_semantic_version_rejects_invalid_version(tmp_path: Path) -> None:
+    response = make_client(tmp_path).post(
+        "/api/release-semantic-version",
+        json={"version_name": "not-a-release", "is_dry_run": True},
     )
 
     assert response.status_code == 422
