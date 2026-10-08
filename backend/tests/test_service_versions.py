@@ -19,8 +19,14 @@ def version(version_id: str, name: str, release_date=None):
 
 def test_report_filters_released_and_semantic_versions(monkeypatch) -> None:
     subtask_reference = SimpleNamespace(key="IGM-2")
+    requested_jql = []
+
+    def search_issues(jql, **kwargs):
+        requested_jql.append(jql)
+        return [issue("Story", [subtask_reference])]
+
     client = SimpleNamespace(
-        search_issues=lambda *args, **kwargs: [issue("Story", [subtask_reference])],
+        search_issues=search_issues,
         issue=lambda *args, **kwargs: issue(
             "Sub-task",
             fix_versions=[
@@ -34,9 +40,11 @@ def test_report_filters_released_and_semantic_versions(monkeypatch) -> None:
     )
     monkeypatch.setattr(service_versions, "_jira_client", lambda: client)
 
-    report = service_versions.get_service_versions_without_release_date()
+    report = service_versions.get_service_versions_without_release_date("IGM", "Deploy.ai-data.26.4.1")
 
     assert report == [
         service_versions.ServiceVersion(id="1", name="ignore-this.be.26.4.1"),
         service_versions.ServiceVersion(id="2", name="ignore-this.bo.26.4.1"),
     ]
+    assert 'project = IGM' in requested_jql[0]
+    assert 'fixVersion = "Deploy.ai-data.26.4.1"' in requested_jql[0]

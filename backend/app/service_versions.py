@@ -5,8 +5,6 @@ from dataclasses import dataclass
 from dotenv import load_dotenv
 from jira import JIRA
 
-PROJECT_KEY = "IGM"
-RELEASE_VERSION = "Deploy.ai-data.26.4.1"
 RELEASABLE_SUBTASK_TYPES = {"Sub-task", "Sub-bug"}
 PARENT_ISSUE_TYPES = {"Story", "Enabler", "Bug", "Config Change"}
 SEMANTIC_VERSION_PATTERN = re.compile(
@@ -33,17 +31,19 @@ def _jira_client() -> JIRA:
     return JIRA(server=os.getenv("JIRA_URL", "https://jira.egt-digital.com"), token_auth=token)
 
 
-def _is_semantic_version(name: str) -> bool:
+def is_semantic_release_version(name: str) -> bool:
     return bool(SEMANTIC_VERSION_PATTERN.fullmatch(name))
 
 
-def get_service_versions_without_release_date() -> list[ServiceVersion]:
+def get_service_versions_without_release_date(
+    project_key: str, release_version: str
+) -> list[ServiceVersion]:
     """Return unique non-semantic service versions without a Jira release date."""
     jira = _jira_client()
     parents = jira.search_issues(
-        f'''project = {PROJECT_KEY}
+        f'''project = {project_key}
         AND issuetype IN ("Story", "Enabler", "Bug", "Config Change")
-        AND fixVersion = "{RELEASE_VERSION}"
+        AND fixVersion = "{release_version}"
         ORDER BY key ASC''',
         maxResults=False,
         fields="key,issuetype,subtasks",
@@ -58,7 +58,7 @@ def get_service_versions_without_release_date() -> list[ServiceVersion]:
             if subtask.fields.issuetype.name not in RELEASABLE_SUBTASK_TYPES:
                 continue
             for version in subtask.fields.fixVersions or []:
-                if _is_semantic_version(version.name) or getattr(version, "releaseDate", None):
+                if is_semantic_release_version(version.name) or getattr(version, "releaseDate", None):
                     continue
                 versions[str(version.id)] = ServiceVersion(id=str(version.id), name=version.name)
 

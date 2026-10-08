@@ -15,9 +15,7 @@ def make_frontend_build(tmp_path: Path) -> Path:
     return build_dir
 
 
-def make_client(
-    tmp_path: Path, service_version_reporter=lambda: []
-) -> TestClient:
+def make_client(tmp_path: Path, service_version_reporter=lambda project_key, release_version: []) -> TestClient:
     return TestClient(create_app(make_frontend_build(tmp_path), service_version_reporter))
 
 
@@ -28,33 +26,48 @@ def test_health_endpoint(tmp_path: Path) -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_message_endpoint(tmp_path: Path) -> None:
-    response = make_client(tmp_path).get("/api/message")
-
-    assert response.status_code == 200
-    assert response.json() == {"message": "Hello from the Python backend."}
-
-
 def test_service_versions_endpoint_returns_the_report(tmp_path: Path) -> None:
+    requested_parameters = []
+
+    def report(project_key: str, release_version: str) -> list[ServiceVersion]:
+        requested_parameters.append((project_key, release_version))
+        return [ServiceVersion(id="2", name="ignore-this.bo.26.4.1")]
+
     client = make_client(
         tmp_path,
-        lambda: [ServiceVersion(id="2", name="ignore-this.bo.26.4.1")],
+        report,
     )
 
-    response = client.get("/api/service-versions")
+    response = client.post(
+        "/api/service-versions",
+        json={"project_key": "IGM", "release_version": "Deploy.ai-data.26.4.1"},
+    )
 
     assert response.status_code == 200
     assert response.json() == [{"id": "2", "name": "ignore-this.bo.26.4.1"}]
+    assert requested_parameters == [("IGM", "Deploy.ai-data.26.4.1")]
 
 
 def test_service_versions_endpoint_hides_upstream_errors(tmp_path: Path) -> None:
-    def fail() -> list[ServiceVersion]:
+    def fail(project_key: str, release_version: str) -> list[ServiceVersion]:
         raise RuntimeError("Jira token must not be exposed")
 
-    response = make_client(tmp_path, fail).get("/api/service-versions")
+    response = make_client(tmp_path, fail).post(
+        "/api/service-versions",
+        json={"project_key": "IGM", "release_version": "Deploy.ai-data.26.4.1"},
+    )
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Unable to retrieve service versions from Jira"}
+
+
+def test_service_versions_endpoint_rejects_invalid_parameters(tmp_path: Path) -> None:
+    response = make_client(tmp_path).post(
+        "/api/service-versions",
+        json={"project_key": "IGM OR 1=1", "release_version": "not-a-release"},
+    )
+
+    assert response.status_code == 422
 
 
 def test_frontend_root_serves_index(tmp_path: Path) -> None:

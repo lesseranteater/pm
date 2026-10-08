@@ -33,9 +33,10 @@ JIRA_TOKEN=your-token
 JIRA_URL=https://jira.egt-digital.com
 ```
 
-`.env` is ignored by Git. Open `http://127.0.0.1:8000/`. The frontend requests
-`GET /api/service-versions`, which returns the Jira report. `GET /api/health`
-reports backend health.
+`.env` is ignored by Git. Open `http://127.0.0.1:8000/`, enter a Jira project
+key and release version, then load the report. The frontend sends those values
+to `POST /api/service-versions`; the Jira token remains server-side. `GET
+/api/health` reports backend health.
 
 The cross-platform scripts build the frontend when needed and run the same
 combined application:

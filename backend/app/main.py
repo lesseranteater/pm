@@ -7,10 +7,14 @@ from typing import Callable
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from .main_paths import PROJECT_ROOT
-from .service_versions import ServiceVersion, get_service_versions_without_release_date
+from .service_versions import (
+    ServiceVersion,
+    get_service_versions_without_release_date,
+    is_semantic_release_version,
+)
 
 DEFAULT_FRONTEND_BUILD = PROJECT_ROOT / "frontend" / "build"
 log = logging.getLogger(__name__)
@@ -19,6 +23,18 @@ log = logging.getLogger(__name__)
 class ServiceVersionResponse(BaseModel):
     id: str
     name: str
+
+
+class ServiceVersionRequest(BaseModel):
+    project_key: str = Field(pattern=r"^[A-Z][A-Z0-9_]{1,9}$")
+    release_version: str = Field(min_length=1, max_length=120)
+
+    @field_validator("release_version")
+    @classmethod
+    def validate_release_version(cls, value: str) -> str:
+        if not is_semantic_release_version(value):
+            raise ValueError("Release version is not supported")
+        return value
 
 
 def _frontend_file(build_dir: Path, request_path: str) -> Path | None:
@@ -33,7 +49,7 @@ def _frontend_file(build_dir: Path, request_path: str) -> Path | None:
 
 def create_app(
     frontend_build_dir: Path | str | None = None,
-    service_version_reporter: Callable[[], list[ServiceVersion]] = get_service_versions_without_release_date,
+    service_version_reporter: Callable[[str, str], list[ServiceVersion]] = get_service_versions_without_release_date,
 ) -> FastAPI:
     build_dir = Path(
         frontend_build_dir or os.environ.get("FRONTEND_BUILD_DIR", DEFAULT_FRONTEND_BUILD)
@@ -44,14 +60,13 @@ def create_app(
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/api/message", tags=["system"])
-    async def message() -> dict[str, str]:
-        return {"message": "Hello from the Python backend."}
-
-    @app.get("/api/service-versions", tags=["service-versions"])
-    async def service_versions() -> list[ServiceVersionResponse]:
+    @app.post("/api/service-versions", tags=["service-versions"])
+    async def service_versions(request: ServiceVersionRequest) -> list[ServiceVersionResponse]:
         try:
-            return [ServiceVersionResponse(id=version.id, name=version.name) for version in service_version_reporter()]
+            return [
+                ServiceVersionResponse(id=version.id, name=version.name)
+                for version in service_version_reporter(request.project_key, request.release_version)
+            ]
         except Exception:
             log.exception("Unable to retrieve service versions from Jira")
             raise HTTPException(
