@@ -7,6 +7,7 @@ from typing import Iterable
 
 from dotenv import load_dotenv
 from jira import JIRA
+from jira.exceptions import JIRAError
 from jira.resources import Issue, Version
 
 from .service_versions import is_semantic_release_version
@@ -187,12 +188,23 @@ def version_status(version: Version) -> str:
     return "released" if bool(getattr(version, "released", False)) else "unreleased"
 
 
+class ProjectNotFoundError(RuntimeError):
+    """Raised when Jira has no project with the requested key."""
+
+
 def list_semantic_versions(jira: JIRA, project_key: str, status: str) -> list[str]:
     """Return names of semantic versions in the project with the given status."""
 
+    try:
+        project_versions = jira.project_versions(project_key)
+    except JIRAError as error:
+        if error.status_code == 404:
+            raise ProjectNotFoundError(f"Jira project '{project_key}' was not found.") from error
+        raise
+
     return sorted(
         version.name
-        for version in jira.project_versions(project_key)
+        for version in project_versions
         if is_semantic_release_version(getattr(version, "name", "") or "")
         and version_status(version) == status
     )

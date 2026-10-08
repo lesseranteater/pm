@@ -16,6 +16,21 @@ def test_release_service_captures_its_log(monkeypatch) -> None:
     assert "Processed Hotfix.ps-dev-1.26.4.3 with dry_run=True" in output
 
 
+def test_unknown_jira_project_raises_project_not_found() -> None:
+    from jira.exceptions import JIRAError
+
+    class FakeJira:
+        def project_versions(self, project_key: str):
+            raise JIRAError(status_code=404, text="No project could be found")
+
+    try:
+        release_semantic_version.list_semantic_versions(FakeJira(), "ABC", "unreleased")
+    except release_semantic_version.ProjectNotFoundError as error:
+        assert "ABC" in str(error)
+    else:
+        raise AssertionError("expected ProjectNotFoundError")
+
+
 def test_semantic_versions_are_partitioned_by_status() -> None:
     from types import SimpleNamespace
 

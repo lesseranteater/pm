@@ -11,5 +11,5 @@ test('executes the selected script route', async ({ page }) => {
 
   await expect(page).toHaveURL(/\/release-semantic-version$/);
   await expect(page.getByRole('heading', { name: 'Release a Semantic Version' })).toBeVisible();
-  await expect(page.getByLabel('Deployment Version')).toBeVisible();
+  await expect(page.getByLabel('Unreleased Deployment Version')).toBeVisible();
 });

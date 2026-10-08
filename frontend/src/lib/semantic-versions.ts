@@ -2,6 +2,12 @@ export const VERSION_STATUSES = ['unreleased', 'released', 'archived'] as const;
 
 export type VersionStatus = (typeof VERSION_STATUSES)[number];
 
+export class SemanticVersionsError extends Error {
+  constructor(readonly status: number) {
+    super(`Semantic versions request failed (${status})`);
+  }
+}
+
 export async function getSemanticVersions(
   status: VersionStatus,
   projectKey?: string
@@ -10,7 +16,7 @@ export async function getSemanticVersions(
   if (projectKey) params.set('project_key', projectKey);
 
   const response = await globalThis.fetch(`/api/semantic-versions?${params}`);
-  if (!response.ok) throw new Error('Semantic versions request failed');
+  if (!response.ok) throw new SemanticVersionsError(response.status);
 
   const body = (await response.json()) as unknown;
   if (!Array.isArray(body) || !body.every((name) => typeof name === 'string')) {

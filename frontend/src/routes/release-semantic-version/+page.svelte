@@ -7,7 +7,7 @@
   let versionName = $state('');
   let versionNames = $state<string[]>([]);
   let loadingVersions = $state(true);
-  let dryRun = $state(false);
+  let dryRun = $state(true);
   let log = $state('');
   let error = $state('');
   let pending = $state(false);
@@ -51,7 +51,7 @@
         void releaseVersion();
       }}
     >
-      <label for="deployment-version">Deployment Version</label>
+      <label for="deployment-version">Unreleased Deployment Version</label>
       <VersionSelect
         id="deployment-version"
         bind:value={versionName}

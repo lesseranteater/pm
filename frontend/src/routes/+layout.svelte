@@ -20,8 +20,7 @@
   <header class="app-header">
     <a class="brand" href={resolve('/service-versions')}>Release Tools</a>
     <div class="script-selector">
-      <label for="script">Script</label>
-      <select id="script" bind:value={selectedScript}>
+      <select id="script" aria-label="Script" bind:value={selectedScript}>
         <option value="/service-versions">Service Versions Without a Release Date</option>
         <option value={releaseRoute}>Release a Semantic Version</option>
       </select>

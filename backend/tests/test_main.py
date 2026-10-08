@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.app.main import create_app
+from backend.app.release_semantic_version import ProjectNotFoundError
 from backend.app.service_versions import ServiceVersion
 
 
@@ -141,6 +142,18 @@ def test_semantic_versions_reject_unknown_status_and_project_key(tmp_path: Path)
 
     assert client.get("/api/semantic-versions", params={"status": "deleted"}).status_code == 422
     assert client.get("/api/semantic-versions", params={"project_key": "bad key"}).status_code == 422
+
+
+def test_semantic_versions_report_unknown_project(tmp_path: Path) -> None:
+    def missing(status: str, project_key: str) -> list[str]:
+        raise ProjectNotFoundError(project_key)
+
+    response = make_client(tmp_path, semantic_version_lister=missing).get(
+        "/api/semantic-versions", params={"project_key": "ABC"}
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Jira project ABC was not found"}
 
 
 def test_semantic_versions_report_jira_failure(tmp_path: Path) -> None:

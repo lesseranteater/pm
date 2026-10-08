@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { getSemanticVersions } from './semantic-versions';
+import { getSemanticVersions, SemanticVersionsError } from './semantic-versions';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -17,4 +17,13 @@ test('rejects an invalid response', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"oops":1}')));
 
   await expect(getSemanticVersions('unreleased')).rejects.toThrow('invalid');
+});
+
+test('exposes the HTTP status when the request fails', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 404 })));
+
+  const failure = await getSemanticVersions('unreleased', 'ABC').catch((error: unknown) => error);
+
+  expect(failure).toBeInstanceOf(SemanticVersionsError);
+  expect((failure as SemanticVersionsError).status).toBe(404);
 });

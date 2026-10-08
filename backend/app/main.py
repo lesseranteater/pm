@@ -10,7 +10,11 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 from .main_paths import PROJECT_ROOT
-from .release_semantic_version import get_semantic_versions, release_semantic_version
+from .release_semantic_version import (
+    ProjectNotFoundError,
+    get_semantic_versions,
+    release_semantic_version,
+)
 from .service_versions import (
     ServiceVersion,
     get_service_versions_without_release_date,
@@ -100,6 +104,11 @@ def create_app(
     ) -> list[str]:
         try:
             return semantic_version_lister(status, project_key)
+        except ProjectNotFoundError:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Jira project {project_key} was not found",
+            ) from None
         except Exception:
             log.exception("Unable to retrieve semantic versions")
             raise HTTPException(

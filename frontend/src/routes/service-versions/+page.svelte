@@ -2,7 +2,11 @@
   import { onMount } from 'svelte';
   import VersionSelect from '$lib/VersionSelect.svelte';
   import { getServiceVersions, type ServiceVersion } from '$lib/service-versions';
-  import { getSemanticVersions, type VersionStatus } from '$lib/semantic-versions';
+  import {
+    getSemanticVersions,
+    SemanticVersionsError,
+    type VersionStatus
+  } from '$lib/semantic-versions';
 
   const statusOptions: { value: VersionStatus; label: string }[] = [
     { value: 'unreleased', label: 'Unreleased' },
@@ -20,24 +24,42 @@
   let pending = $state(false);
   let latestVersionsRequest = 0;
 
+  const PROJECT_KEY_PATTERN = /^[A-Z][A-Z0-9_]{1,9}$/;
+
   async function loadReleaseVersions() {
     const request = ++latestVersionsRequest;
     error = '';
     loadingVersions = true;
     versions = null;
+    if (!PROJECT_KEY_PATTERN.test(projectKey)) {
+      releaseVersions = [];
+      releaseVersion = '';
+      error = 'Enter a valid project key, for example IGM.';
+      loadingVersions = false;
+      return;
+    }
     try {
       const names = await getSemanticVersions(status, projectKey);
       if (request !== latestVersionsRequest) return;
       releaseVersions = names;
       releaseVersion = names[0] ?? '';
-    } catch {
+    } catch (failure) {
       if (request !== latestVersionsRequest) return;
       releaseVersions = [];
       releaseVersion = '';
-      error = 'Unable to load deployment versions.';
+      error =
+        failure instanceof SemanticVersionsError && failure.status === 404
+          ? `Jira project ${projectKey} was not found.`
+          : 'Unable to load deployment versions.';
     } finally {
       if (request === latestVersionsRequest) loadingVersions = false;
     }
+  }
+
+  // Refresh the deployment versions for the project key that was just entered.
+  function applyProjectKey() {
+    projectKey = projectKey.trim().toUpperCase();
+    void loadReleaseVersions();
   }
 
   onMount(loadReleaseVersions);
@@ -73,7 +95,12 @@
       <input
         id="project-key"
         bind:value={projectKey}
-        onchange={() => void loadReleaseVersions()}
+        onchange={applyProjectKey}
+        onkeydown={(event) => {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          applyProjectKey();
+        }}
         maxlength="10"
         required
       />
