@@ -15,14 +15,11 @@ test('displays the service versions returned by the API', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: 'Service versions without a release date' })
   ).toBeVisible();
-  await expect(page.getByText('service.26.4.1')).toBeVisible();
   await page.getByLabel('Project key').fill('ABC');
-  await page.getByLabel('Release version').fill('Deploy.ai-data.26.4.1');
+  await page.getByLabel('Deployment version').fill('Deploy.ai-data.26.4.1');
   await page.getByRole('button', { name: 'Load report' }).click();
+  await expect(page.getByText('service.26.4.1')).toBeVisible();
   await expect
     .poll(() => requests)
-    .toEqual([
-      { project_key: 'IGM', release_version: 'Deploy.ai-data.26.4.1' },
-      { project_key: 'ABC', release_version: 'Deploy.ai-data.26.4.1' }
-    ]);
+    .toEqual([{ project_key: 'ABC', release_version: 'Deploy.ai-data.26.4.1' }]);
 });

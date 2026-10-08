@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { getServiceVersions, type ServiceVersion } from '$lib/service-versions';
 
   let projectKey = $state('IGM');
@@ -7,10 +6,6 @@
   let versions = $state<ServiceVersion[] | null>(null);
   let error = $state('');
   let pending = $state(false);
-
-  onMount(() => {
-    void loadServiceVersions();
-  });
 
   async function loadServiceVersions() {
     error = '';
@@ -42,7 +37,7 @@
     >
       <label for="project-key">Project key</label>
       <input id="project-key" bind:value={projectKey} maxlength="10" required />
-      <label for="release-version">Release version</label>
+      <label for="release-version">Deployment version</label>
       <input id="release-version" bind:value={releaseVersion} maxlength="120" required />
       <button type="submit" disabled={pending}>{pending ? 'Loading...' : 'Load report'}</button>
     </form>
