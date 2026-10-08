@@ -19,7 +19,7 @@ test('submits release parameters and displays the captured log', async ({ page }
       })
     });
   });
-  await page.goto('/release-a-semantic-version');
+  await page.goto('/release-a-deployment-version');
 
   await page.getByRole('combobox', { name: 'Unreleased Deployment Version' }).click();
   await page.getByRole('option', { name: 'Hotfix.ps-dev-1.26.4.3' }).click();
@@ -50,7 +50,7 @@ test('filters the deployment versions with a fuzzy search as the user types', as
       ])
     })
   );
-  await page.goto('/release-a-semantic-version');
+  await page.goto('/release-a-deployment-version');
 
   const deployment = page.getByRole('combobox', { name: 'Unreleased Deployment Version' });
   await deployment.click();

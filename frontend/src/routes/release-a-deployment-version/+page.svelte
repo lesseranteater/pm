@@ -39,13 +39,13 @@
 </script>
 
 <svelte:head>
-  <title>Release a Semantic Version</title>
-  <meta name="description" content="Release a Jira semantic version." />
+  <title>Release a Deployment Version</title>
+  <meta name="description" content="Release a Jira deployment version." />
 </svelte:head>
 
 <main>
   <section aria-labelledby="page-title">
-    <h1 id="page-title">Release a Semantic Version</h1>
+    <h1 id="page-title">Release a Deployment Version</h1>
     <form
       onsubmit={(event) => {
         event.preventDefault();

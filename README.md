@@ -33,8 +33,8 @@ JIRA_TOKEN=your-token
 JIRA_URL=https://jira.egt-digital.com
 ```
 
-`.env` is ignored by Git. Open `http://127.0.0.1:8000/` for the Release Tools
-home page, which explains the tools and links to each one; the logo always
+`.env` is ignored by Git. Open `http://127.0.0.1:8000/` for the Release Management
+Tools home page, which explains the tools and links to each one; the logo always
 returns to it. For the service versions report, enter a Jira project key, choose a release version status and a deployment version, then load the
 report. The **List Service Versions Without a Release Date** script returns its Jira
 search log in the browser, based on
@@ -42,7 +42,7 @@ search log in the browser, based on
 values to `POST /api/service-versions`; the Jira token remains server-side. `GET
 /api/health` reports backend health.
 
-The **Release a Semantic Version** script accepts a deployment version and a Dry
+The **Release a Deployment Version** script accepts a deployment version and a Dry
 Run choice. It returns its Jira workflow log in the browser. Choosing **No** for
 Dry Run applies Jira changes.
 

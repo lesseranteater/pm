@@ -7,8 +7,8 @@ export const tools = [
     access: 'Read only'
   },
   {
-    route: '/release-a-semantic-version',
-    title: 'Release a Semantic Version',
+    route: '/release-a-deployment-version',
+    title: 'Release a Deployment Version',
     summary:
       'Releases an unreleased deployment version in Jira, updates the Release State of its issues, comments on blocked parents and publishes the ones that are ready.',
     access: 'Changes Jira'

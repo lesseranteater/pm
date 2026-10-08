@@ -4,16 +4,16 @@
 </script>
 
 <svelte:head>
-  <title>Release Tools</title>
+  <title>Release Management Tools</title>
   <meta
     name="description"
-    content="Release Tools runs the team's Jira release scripts from one place, with a log for every run."
+    content="Release Management Tools runs the team's Jira release scripts from one place, with a log for every run."
   />
 </svelte:head>
 
 <main>
   <section class="splash" aria-labelledby="page-title">
-    <h1 id="page-title">Release Tools</h1>
+    <h1 id="page-title">Release Management Tools</h1>
     <p class="lead">
       One place to run the Jira release scripts, with a log for every run. Each tool wraps a script
       the release team used to run by hand, so the steps are the same every time and nothing is

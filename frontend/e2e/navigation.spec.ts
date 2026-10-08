@@ -6,9 +6,9 @@ test('executes the selected script route', async ({ page }) => {
   );
   await page.goto('/list-service-versions-without-a-release-date');
 
-  await page.getByLabel('Select a Tool').selectOption('/release-a-semantic-version');
+  await page.getByLabel('Select a Tool').selectOption('/release-a-deployment-version');
 
-  await expect(page).toHaveURL(/\/release-a-semantic-version$/);
-  await expect(page.getByRole('heading', { name: 'Release a Semantic Version' })).toBeVisible();
+  await expect(page).toHaveURL(/\/release-a-deployment-version$/);
+  await expect(page.getByRole('heading', { name: 'Release a Deployment Version' })).toBeVisible();
   await expect(page.getByLabel('Unreleased Deployment Version')).toBeVisible();
 });

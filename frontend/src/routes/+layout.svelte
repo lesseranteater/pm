@@ -20,7 +20,7 @@
 
 <header class="app-header">
   <div class="app-header-inner">
-    <a class="brand" href={resolve('/')}>Release Tools</a>
+    <a class="brand" href={resolve('/')}>Release Management Tools</a>
     <div class="script-selector">
       <label for="script">Select a Tool</label>
       <select id="script" value={selectedScript} onchange={loadSelectedScript}>
