@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import VersionSelect from '$lib/VersionSelect.svelte';
-  import { getServiceVersions, type ServiceVersion } from '$lib/service-versions';
+  import ScriptLog from '$lib/ScriptLog.svelte';
+  import { getServiceVersions } from '$lib/service-versions';
   import {
     getSemanticVersions,
     SemanticVersionsError,
@@ -19,7 +20,7 @@
   let releaseVersion = $state('');
   let releaseVersions = $state<string[]>([]);
   let loadingVersions = $state(true);
-  let versions = $state<ServiceVersion[] | null>(null);
+  let log = $state('');
   let error = $state('');
   let pending = $state(false);
   let latestVersionsRequest = 0;
@@ -30,7 +31,7 @@
     const request = ++latestVersionsRequest;
     error = '';
     loadingVersions = true;
-    versions = null;
+    log = '';
     if (!PROJECT_KEY_PATTERN.test(projectKey)) {
       releaseVersions = [];
       releaseVersion = '';
@@ -66,9 +67,10 @@
 
   async function loadServiceVersions() {
     error = '';
+    log = '';
     pending = true;
     try {
-      versions = await getServiceVersions(projectKey, releaseVersion);
+      log = await getServiceVersions(projectKey, releaseVersion);
     } catch {
       error = 'Unable to load service versions from the backend.';
     } finally {
@@ -133,16 +135,9 @@
     </form>
     {#if error}
       <p class="error" role="alert">{error}</p>
-    {:else if pending && versions === null}
-      <p aria-live="polite">Loading service versions...</p>
-    {:else if versions?.length === 0}
-      <p class="message">Every matching service version has a release date.</p>
-    {:else if versions}
-      <ul aria-live="polite">
-        {#each versions as version (version.id)}
-          <li>{version.name}</li>
-        {/each}
-      </ul>
+    {/if}
+    {#if log}
+      <ScriptLog id="service-versions-log" {log} />
     {/if}
   </section>
 </main>

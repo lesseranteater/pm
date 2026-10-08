@@ -19,7 +19,9 @@ test('displays the service versions returned by the API', async ({ page }) => {
     requests.push(route.request().postDataJSON());
     return route.fulfill({
       contentType: 'application/json',
-      body: JSON.stringify([{ id: '1', name: 'service.26.4.1' }])
+      body: JSON.stringify({
+        log: '2026-10-08 10:00:00,000 | INFO | Service versions without release date: 1\n2026-10-08 10:00:01,000 | WARNING | Check service.26.4.1'
+      })
     });
   });
 
@@ -52,7 +54,10 @@ test('displays the service versions returned by the API', async ({ page }) => {
   await expect(deployment).toHaveValue('Deploy.fe-dev.26.3.6');
 
   await page.getByRole('button', { name: 'Load Report' }).click();
-  await expect(page.getByText('service.26.4.1')).toBeVisible();
+  await expect(page.getByRole('log', { name: 'Script Log' })).toContainText(
+    'Service versions without release date: 1'
+  );
+  await expect(page.locator('.log-warning')).toHaveCount(1);
   await expect
     .poll(() => requests)
     .toEqual([{ project_key: 'ABC', release_version: 'Deploy.fe-dev.26.3.6' }]);

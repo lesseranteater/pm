@@ -17,18 +17,12 @@ from .release_semantic_version import (
     release_semantic_version,
 )
 from .service_versions import (
-    ServiceVersion,
-    get_service_versions_without_release_date,
     is_semantic_release_version,
+    report_service_versions_without_release_date,
 )
 
 DEFAULT_FRONTEND_BUILD = PROJECT_ROOT / "frontend" / "build"
 log = logging.getLogger(__name__)
-
-
-class ServiceVersionResponse(BaseModel):
-    id: str
-    name: str
 
 
 class ServiceVersionRequest(BaseModel):
@@ -55,7 +49,7 @@ class SemanticReleaseRequest(BaseModel):
         return value
 
 
-class SemanticReleaseResponse(BaseModel):
+class ScriptLogResponse(BaseModel):
     log: str
 
 
@@ -76,7 +70,7 @@ def _frontend_file(build_dir: Path, request_path: str) -> Path | None:
 
 def create_app(
     frontend_build_dir: Path | str | None = None,
-    service_version_reporter: Callable[[str, str], list[ServiceVersion]] = get_service_versions_without_release_date,
+    service_version_reporter: Callable[[str, str], str] = report_service_versions_without_release_date,
     semantic_version_releaser: Callable[[str, bool], str] = release_semantic_version,
     semantic_version_lister: Callable[[str, str], list[str]] = get_semantic_versions,
     released_version_archiver: Callable[[str, bool], str] = archive_released_versions,
@@ -91,12 +85,11 @@ def create_app(
         return {"status": "ok"}
 
     @app.post("/api/service-versions", tags=["service-versions"])
-    async def service_versions(request: ServiceVersionRequest) -> list[ServiceVersionResponse]:
+    async def service_versions(request: ServiceVersionRequest) -> ScriptLogResponse:
         try:
-            return [
-                ServiceVersionResponse(id=version.id, name=version.name)
-                for version in service_version_reporter(request.project_key, request.release_version)
-            ]
+            return ScriptLogResponse(
+                log=service_version_reporter(request.project_key, request.release_version)
+            )
         except Exception:
             log.exception("Unable to retrieve service versions from Jira")
             raise HTTPException(
@@ -124,9 +117,9 @@ def create_app(
             ) from None
 
     @app.post("/api/archive-released-versions", tags=["archive-released-versions"])
-    async def archive_versions(request: ArchiveRequest) -> SemanticReleaseResponse:
+    async def archive_versions(request: ArchiveRequest) -> ScriptLogResponse:
         try:
-            return SemanticReleaseResponse(
+            return ScriptLogResponse(
                 log=released_version_archiver(request.project_key, request.is_dry_run)
             )
         except Exception:
@@ -137,9 +130,9 @@ def create_app(
             ) from None
 
     @app.post("/api/release-semantic-version", tags=["release-semantic-version"])
-    async def release_version(request: SemanticReleaseRequest) -> SemanticReleaseResponse:
+    async def release_version(request: SemanticReleaseRequest) -> ScriptLogResponse:
         try:
-            return SemanticReleaseResponse(
+            return ScriptLogResponse(
                 log=semantic_version_releaser(request.version_name, request.is_dry_run)
             )
         except Exception:

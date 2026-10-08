@@ -34,8 +34,11 @@ JIRA_URL=https://jira.egt-digital.com
 ```
 
 `.env` is ignored by Git. Open `http://127.0.0.1:8000/`, enter a Jira project
-key and release version, then load the report. The frontend sends those values
-to `POST /api/service-versions`; the Jira token remains server-side. `GET
+key, choose a release version status and a deployment version, then load the
+report. The **Service Versions Without a Release Date** script returns its Jira
+search log in the browser, based on
+`tools/list_service_versions_without_release_date.py`. The frontend sends those
+values to `POST /api/service-versions`; the Jira token remains server-side. `GET
 /api/health` reports backend health.
 
 The **Release a Semantic Version** script accepts a deployment version and a Dry

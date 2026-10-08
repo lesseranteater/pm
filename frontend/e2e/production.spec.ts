@@ -12,5 +12,7 @@ test('displays service versions from FastAPI', async ({ page }) => {
     page.getByRole('heading', { name: 'Service Versions Without a Release Date' })
   ).toBeVisible();
   await page.getByRole('button', { name: 'Load Report' }).click();
-  await expect(page.locator('li')).toHaveCount(2);
+  await expect(page.getByRole('log', { name: 'Script Log' })).toContainText(
+    'Service versions without release date'
+  );
 });

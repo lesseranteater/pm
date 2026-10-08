@@ -1,6 +1,8 @@
+import io
+import logging
 import os
 import re
-from dataclasses import dataclass
+from threading import Lock
 
 from dotenv import load_dotenv
 from jira import JIRA
@@ -16,11 +18,11 @@ SEMANTIC_VERSION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+log = logging.getLogger("service-version-report")
+log.setLevel(logging.INFO)
+log.propagate = False
 
-@dataclass(frozen=True)
-class ServiceVersion:
-    id: str
-    name: str
+report_lock = Lock()
 
 
 def _jira_client() -> JIRA:
@@ -35,31 +37,79 @@ def is_semantic_release_version(name: str) -> bool:
     return bool(SEMANTIC_VERSION_PATTERN.fullmatch(name))
 
 
-def get_service_versions_without_release_date(
-    project_key: str, release_version: str
-) -> list[ServiceVersion]:
-    """Return unique non-semantic service versions without a Jira release date."""
-    jira = _jira_client()
-    parents = jira.search_issues(
-        f'''project = {project_key}
+def _get_release_date(version):
+    """Return the version release date, or None when none has been configured."""
+    return getattr(version, "releaseDate", None)
+
+
+def _report(jira: JIRA, project_key: str, release_version: str) -> None:
+    if not is_semantic_release_version(release_version):
+        raise RuntimeError(f"'{release_version}' is not a valid semantic release version.")
+
+    jql = f'''
+        project = {project_key}
         AND issuetype IN ("Story", "Enabler", "Bug", "Config Change")
         AND fixVersion = "{release_version}"
-        ORDER BY key ASC''',
+        ORDER BY key ASC
+    '''
+
+    log.info("Searching Jira for parents assigned to '%s'.", release_version)
+
+    parent_issues = jira.search_issues(
+        jql,
         maxResults=False,
         fields="key,issuetype,subtasks",
     )
-    versions: dict[str, ServiceVersion] = {}
 
-    for parent in parents:
-        if parent.fields.issuetype.name not in PARENT_ISSUE_TYPES:
+    log.info("Found %d matching parent issue(s).", len(parent_issues))
+
+    versions_without_release_date: dict[str, dict[str, str]] = {}
+
+    for parent_issue in parent_issues:
+        if parent_issue.fields.issuetype.name not in PARENT_ISSUE_TYPES:
             continue
-        for reference in parent.fields.subtasks or []:
-            subtask = jira.issue(reference.key, fields="key,issuetype,fixVersions")
+
+        for subtask_reference in parent_issue.fields.subtasks or []:
+            subtask = jira.issue(
+                subtask_reference.key,
+                fields="key,issuetype,fixVersions",
+            )
+
             if subtask.fields.issuetype.name not in RELEASABLE_SUBTASK_TYPES:
                 continue
-            for version in subtask.fields.fixVersions or []:
-                if is_semantic_release_version(version.name) or getattr(version, "releaseDate", None):
-                    continue
-                versions[str(version.id)] = ServiceVersion(id=str(version.id), name=version.name)
 
-    return sorted(versions.values(), key=lambda version: version.name.casefold())
+            for version in subtask.fields.fixVersions or []:
+                if is_semantic_release_version(version.name) or _get_release_date(version) is not None:
+                    continue
+
+                versions_without_release_date[str(version.id)] = {
+                    "service_version": version.name,
+                    "service_version_id": str(version.id),
+                }
+
+    results = sorted(
+        versions_without_release_date.values(),
+        key=lambda result: result["service_version"].casefold(),
+    )
+
+    log.info("Service versions without release date: %d", len(results))
+
+    for result in results:
+        log.info("Service version without release date: %s", result["service_version"])
+
+
+def report_service_versions_without_release_date(project_key: str, release_version: str) -> str:
+    """Run the service version report and return its operational log."""
+    output = io.StringIO()
+    handler = logging.StreamHandler(output)
+    handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(message)s"))
+    # The logger is shared, so serialize runs to keep each request's log separate.
+    with report_lock:
+        log.addHandler(handler)
+        try:
+            _report(_jira_client(), project_key, release_version)
+        except Exception:
+            log.exception("Service version report failed.")
+        finally:
+            log.removeHandler(handler)
+    return output.getvalue()

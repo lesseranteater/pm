@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 
 from backend.app.main import create_app
 from backend.app.release_semantic_version import ProjectNotFoundError
-from backend.app.service_versions import ServiceVersion
 
 
 def make_frontend_build(tmp_path: Path) -> Path:
@@ -18,7 +17,7 @@ def make_frontend_build(tmp_path: Path) -> Path:
 
 def make_client(
     tmp_path: Path,
-    service_version_reporter=lambda project_key, release_version: [],
+    service_version_reporter=lambda project_key, release_version: "",
     semantic_version_releaser=lambda version_name, is_dry_run: "",
     semantic_version_lister=lambda status, project_key: [],
     released_version_archiver=lambda project_key, is_dry_run: "",
@@ -44,9 +43,9 @@ def test_health_endpoint(tmp_path: Path) -> None:
 def test_service_versions_endpoint_returns_the_report(tmp_path: Path) -> None:
     requested_parameters = []
 
-    def report(project_key: str, release_version: str) -> list[ServiceVersion]:
+    def report(project_key: str, release_version: str) -> str:
         requested_parameters.append((project_key, release_version))
-        return [ServiceVersion(id="2", name="ignore-this.bo.26.4.1")]
+        return "Service version without release date: ignore-this.bo.26.4.1"
 
     client = make_client(
         tmp_path,
@@ -59,12 +58,12 @@ def test_service_versions_endpoint_returns_the_report(tmp_path: Path) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json() == [{"id": "2", "name": "ignore-this.bo.26.4.1"}]
+    assert response.json() == {"log": "Service version without release date: ignore-this.bo.26.4.1"}
     assert requested_parameters == [("IGM", "Deploy.ai-data.26.4.1")]
 
 
 def test_service_versions_endpoint_hides_upstream_errors(tmp_path: Path) -> None:
-    def fail(project_key: str, release_version: str) -> list[ServiceVersion]:
+    def fail(project_key: str, release_version: str) -> str:
         raise RuntimeError("Jira token must not be exposed")
 
     response = make_client(tmp_path, fail).post(
