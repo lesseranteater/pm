@@ -55,3 +55,17 @@ h1 {
 .error {
   color: #b91c1c;
 }
+
+ul {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+li {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: #f1f5f9;
+}

@@ -1,14 +1,24 @@
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
+from typing import Callable
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel
 
 from .main_paths import PROJECT_ROOT
+from .service_versions import ServiceVersion, get_service_versions_without_release_date
 
 DEFAULT_FRONTEND_BUILD = PROJECT_ROOT / "frontend" / "build"
+log = logging.getLogger(__name__)
+
+
+class ServiceVersionResponse(BaseModel):
+    id: str
+    name: str
 
 
 def _frontend_file(build_dir: Path, request_path: str) -> Path | None:
@@ -21,7 +31,10 @@ def _frontend_file(build_dir: Path, request_path: str) -> Path | None:
     return candidate if candidate.is_file() else None
 
 
-def create_app(frontend_build_dir: Path | str | None = None) -> FastAPI:
+def create_app(
+    frontend_build_dir: Path | str | None = None,
+    service_version_reporter: Callable[[], list[ServiceVersion]] = get_service_versions_without_release_date,
+) -> FastAPI:
     build_dir = Path(
         frontend_build_dir or os.environ.get("FRONTEND_BUILD_DIR", DEFAULT_FRONTEND_BUILD)
     ).resolve()
@@ -34,6 +47,17 @@ def create_app(frontend_build_dir: Path | str | None = None) -> FastAPI:
     @app.get("/api/message", tags=["system"])
     async def message() -> dict[str, str]:
         return {"message": "Hello from the Python backend."}
+
+    @app.get("/api/service-versions", tags=["service-versions"])
+    async def service_versions() -> list[ServiceVersionResponse]:
+        try:
+            return [ServiceVersionResponse(id=version.id, name=version.name) for version in service_version_reporter()]
+        except Exception:
+            log.exception("Unable to retrieve service versions from Jira")
+            raise HTTPException(
+                status_code=503,
+                detail="Unable to retrieve service versions from Jira",
+            ) from None
 
     @app.get("/{request_path:path}", include_in_schema=False)
     async def frontend(request_path: str):

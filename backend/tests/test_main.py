@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.app.main import create_app
+from backend.app.service_versions import ServiceVersion
 
 
 def make_frontend_build(tmp_path: Path) -> Path:
@@ -14,8 +15,10 @@ def make_frontend_build(tmp_path: Path) -> Path:
     return build_dir
 
 
-def make_client(tmp_path: Path) -> TestClient:
-    return TestClient(create_app(make_frontend_build(tmp_path)))
+def make_client(
+    tmp_path: Path, service_version_reporter=lambda: []
+) -> TestClient:
+    return TestClient(create_app(make_frontend_build(tmp_path), service_version_reporter))
 
 
 def test_health_endpoint(tmp_path: Path) -> None:
@@ -30,6 +33,28 @@ def test_message_endpoint(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert response.json() == {"message": "Hello from the Python backend."}
+
+
+def test_service_versions_endpoint_returns_the_report(tmp_path: Path) -> None:
+    client = make_client(
+        tmp_path,
+        lambda: [ServiceVersion(id="2", name="ignore-this.bo.26.4.1")],
+    )
+
+    response = client.get("/api/service-versions")
+
+    assert response.status_code == 200
+    assert response.json() == [{"id": "2", "name": "ignore-this.bo.26.4.1"}]
+
+
+def test_service_versions_endpoint_hides_upstream_errors(tmp_path: Path) -> None:
+    def fail() -> list[ServiceVersion]:
+        raise RuntimeError("Jira token must not be exposed")
+
+    response = make_client(tmp_path, fail).get("/api/service-versions")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Unable to retrieve service versions from Jira"}
 
 
 def test_frontend_root_serves_index(tmp_path: Path) -> None:

@@ -1,39 +1,45 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getMessage } from '$lib/message';
+  import { getServiceVersions, type ServiceVersion } from '$lib/service-versions';
 
-  let message = $state('');
+  let versions = $state<ServiceVersion[] | null>(null);
   let error = $state('');
 
   onMount(() => {
-    void loadMessage();
+    void loadServiceVersions();
   });
 
-  async function loadMessage() {
+  async function loadServiceVersions() {
     error = '';
     try {
-      message = await getMessage();
+      versions = await getServiceVersions();
     } catch {
-      error = 'Unable to load the message from the backend.';
+      error = 'Unable to load service versions from the backend.';
     }
   }
 </script>
 
 <svelte:head>
-  <title>Svelte FastAPI Starter</title>
-  <meta name="description" content="A minimal Svelte frontend and FastAPI backend." />
+  <title>Service Versions</title>
+  <meta name="description" content="Jira service versions without a release date." />
 </svelte:head>
 
 <main>
   <section aria-labelledby="page-title">
-    <p class="eyebrow">Svelte + FastAPI</p>
-    <h1 id="page-title">Starter application</h1>
+    <p class="eyebrow">Jira release report</p>
+    <h1 id="page-title">Service versions without a release date</h1>
     {#if error}
       <p class="error" role="alert">{error}</p>
-    {:else if message}
-      <p class="message" aria-live="polite">{message}</p>
+    {:else if versions === null}
+      <p aria-live="polite">Loading service versions...</p>
+    {:else if versions.length === 0}
+      <p class="message">Every matching service version has a release date.</p>
     {:else}
-      <p aria-live="polite">Loading message...</p>
+      <ul aria-live="polite">
+        {#each versions as version (version.id)}
+          <li>{version.name}</li>
+        {/each}
+      </ul>
     {/if}
   </section>
 </main>

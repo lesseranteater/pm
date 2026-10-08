@@ -7,7 +7,7 @@ if (-not (Test-Path $PidFile)) {
     exit 0
 }
 
-$Pid = Get-Content $PidFile
-Stop-Process -Id $Pid -ErrorAction SilentlyContinue
+$ServerProcessId = Get-Content $PidFile
+Start-Process taskkill.exe -ArgumentList @('/PID', $ServerProcessId, '/T', '/F') -NoNewWindow -Wait
 Remove-Item $PidFile -Force
 Write-Output 'Server stopped.'

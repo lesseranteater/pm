@@ -5,6 +5,8 @@ description = "Minimal Svelte and FastAPI starter application"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115,<1",
+  "jira>=3.10,<4",
+  "python-dotenv>=1,<2",
   "uvicorn[standard]>=0.30,<1"
 ]
 

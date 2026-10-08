@@ -5,9 +5,11 @@ test.skip(
   'Set PRODUCTION_BASE_URL for a live FastAPI smoke test'
 );
 
-test('displays the backend message', async ({ page }) => {
+test('displays service versions from FastAPI', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'Starter application' })).toBeVisible();
-  await expect(page.getByText('Hello from the Python backend.')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Service versions without a release date' })
+  ).toBeVisible();
+  await expect(page.locator('li')).toHaveCount(2);
 });

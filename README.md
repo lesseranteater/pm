@@ -1,8 +1,8 @@
 # Svelte FastAPI Starter
 
-A minimal local application with a SvelteKit frontend and FastAPI backend. The
-frontend fetches and displays a message from the Python API. The production
-frontend is built as static files and served by FastAPI.
+A local application with a SvelteKit frontend and FastAPI backend. It displays
+Jira service versions that are missing a release date. The production frontend
+is built as static files and served by FastAPI.
 
 ## Requirements
 
@@ -26,8 +26,16 @@ pnpm --dir frontend build
 uv run uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Open `http://127.0.0.1:8000/`. The frontend requests `GET /api/message`, which
-returns the message it displays. `GET /api/health` reports backend health.
+Create a root `.env` file with a Jira Personal Access Token:
+
+```text
+JIRA_TOKEN=your-token
+JIRA_URL=https://jira.egt-digital.com
+```
+
+`.env` is ignored by Git. Open `http://127.0.0.1:8000/`. The frontend requests
+`GET /api/service-versions`, which returns the Jira report. `GET /api/health`
+reports backend health.
 
 The cross-platform scripts build the frontend when needed and run the same
 combined application:
@@ -47,7 +55,7 @@ Run the Svelte development server from `frontend/`:
 pnpm dev
 ```
 
-For this standalone frontend server, requests to `/api/message` require a
+For this standalone frontend server, requests to `/api/service-versions` require a
 separately running backend or a development proxy. Use the combined server
 workflow above to exercise the complete application.
 
