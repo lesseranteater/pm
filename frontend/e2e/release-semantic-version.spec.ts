@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('submits release parameters and displays the captured log', async ({ page }) => {
-  await page.route('**/api/unreleased-semantic-versions', (route) =>
+  await page.route('**/api/semantic-versions*', (route) =>
     route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify(['Hotfix.core-dev-1.26.3.4', 'Hotfix.ps-dev-1.26.4.3'])
@@ -21,9 +21,10 @@ test('submits release parameters and displays the captured log', async ({ page }
   });
   await page.goto('/release-semantic-version');
 
-  await page.getByLabel('Deployment Version').selectOption('Hotfix.ps-dev-1.26.4.3');
+  await page.getByRole('combobox', { name: 'Deployment Version' }).click();
+  await page.getByRole('option', { name: 'Hotfix.ps-dev-1.26.4.3' }).click();
   await page.getByRole('radio', { name: 'Yes' }).check();
-  await page.getByRole('button', { name: 'Release version' }).click();
+  await page.getByRole('button', { name: 'Release Version' }).click();
 
   await expect(page.getByRole('log', { name: 'Script Log' })).toContainText('DRY RUN complete');
   await expect(page.locator('.log-warning')).toHaveCount(1);

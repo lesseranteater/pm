@@ -14,17 +14,6 @@ export async function releaseSemanticVersion(
   return body.log;
 }
 
-export async function getUnreleasedSemanticVersions(): Promise<string[]> {
-  const response = await globalThis.fetch('/api/unreleased-semantic-versions');
-  if (!response.ok) throw new Error('Unreleased versions request failed');
-
-  const body = (await response.json()) as unknown;
-  if (!Array.isArray(body) || !body.every((name) => typeof name === 'string')) {
-    throw new Error('Unreleased versions response is invalid');
-  }
-  return body;
-}
-
 export type LogLine = { text: string; level: string | null };
 
 const LOG_ENTRY_START = /^\d{4}-\d{2}-\d{2} [\d:,]+ \| ([A-Z]+) \| /;

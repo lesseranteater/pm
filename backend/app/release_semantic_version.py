@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 from jira import JIRA
 from jira.resources import Issue, Version
 
+from .service_versions import is_semantic_release_version
+
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
@@ -177,20 +179,29 @@ def find_project_version(
     return matching_versions[0]
 
 
-def list_unreleased_semantic_versions(jira: JIRA, project_key: str) -> list[str]:
-    """Return names of unreleased semantic versions in the project."""
+def version_status(version: Version) -> str:
+    """Classify a Jira version as archived, released, or unreleased (archived wins)."""
+
+    if bool(getattr(version, "archived", False)):
+        return "archived"
+    return "released" if bool(getattr(version, "released", False)) else "unreleased"
+
+
+def list_semantic_versions(jira: JIRA, project_key: str, status: str) -> list[str]:
+    """Return names of semantic versions in the project with the given status."""
 
     return sorted(
         version.name
         for version in jira.project_versions(project_key)
-        if is_semantic_version(version) and not bool(getattr(version, "released", False))
+        if is_semantic_release_version(getattr(version, "name", "") or "")
+        and version_status(version) == status
     )
 
 
-def get_unreleased_semantic_versions() -> list[str]:
-    """Return names of unreleased semantic versions in the configured project."""
+def get_semantic_versions(status: str, project_key: str = PROJECT_KEY) -> list[str]:
+    """Return semantic version names with the given status for a Jira project."""
 
-    return list_unreleased_semantic_versions(create_jira_client(), PROJECT_KEY)
+    return list_semantic_versions(create_jira_client(), project_key, status)
 
 
 def search_all_issues(

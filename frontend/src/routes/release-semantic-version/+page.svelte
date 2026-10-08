@@ -1,10 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import {
-    getUnreleasedSemanticVersions,
-    parseLogLines,
-    releaseSemanticVersion
-  } from '$lib/release-semantic-version';
+  import VersionSelect from '$lib/VersionSelect.svelte';
+  import { parseLogLines, releaseSemanticVersion } from '$lib/release-semantic-version';
+  import { getSemanticVersions } from '$lib/semantic-versions';
 
   let versionName = $state('');
   let versionNames = $state<string[]>([]);
@@ -16,7 +14,7 @@
 
   onMount(async () => {
     try {
-      versionNames = await getUnreleasedSemanticVersions();
+      versionNames = await getSemanticVersions('unreleased');
       versionName = versionNames[0] ?? '';
     } catch {
       error = 'Unable to load unreleased deployment versions.';
@@ -54,23 +52,20 @@
       }}
     >
       <label for="deployment-version">Deployment Version</label>
-      <select id="deployment-version" bind:value={versionName} disabled={loadingVersions} required>
-        {#if loadingVersions}
-          <option value="">Loading versions...</option>
-        {:else if versionNames.length === 0}
-          <option value="">No unreleased versions</option>
-        {/if}
-        {#each versionNames as name (name)}
-          <option value={name}>{name}</option>
-        {/each}
-      </select>
+      <VersionSelect
+        id="deployment-version"
+        bind:value={versionName}
+        options={versionNames}
+        disabled={loadingVersions}
+        placeholder={loadingVersions ? 'Loading versions...' : 'No unreleased versions'}
+      />
       <fieldset>
         <legend>Dry Run</legend>
         <label><input type="radio" bind:group={dryRun} value={true} /> Yes</label>
         <label><input type="radio" bind:group={dryRun} value={false} /> No</label>
       </fieldset>
       <button type="submit" disabled={pending || !versionName}
-        >{pending ? 'Releasing...' : 'Release version'}</button
+        >{pending ? 'Releasing...' : 'Release Version'}</button
       >
     </form>
     {#if error}

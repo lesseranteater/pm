@@ -19,14 +19,14 @@ def make_client(
     tmp_path: Path,
     service_version_reporter=lambda project_key, release_version: [],
     semantic_version_releaser=lambda version_name, is_dry_run: "",
-    unreleased_version_lister=lambda: [],
+    semantic_version_lister=lambda status, project_key: [],
 ) -> TestClient:
     return TestClient(
         create_app(
             make_frontend_build(tmp_path),
             service_version_reporter,
             semantic_version_releaser,
-            unreleased_version_lister,
+            semantic_version_lister,
         )
     )
 
@@ -108,25 +108,46 @@ def test_release_semantic_version_rejects_invalid_version(tmp_path: Path) -> Non
     assert response.status_code == 422
 
 
-def test_unreleased_semantic_versions_returns_names(tmp_path: Path) -> None:
-    client = make_client(
-        tmp_path,
-        unreleased_version_lister=lambda: ["Config.core-dev-1.26.4.4", "Deploy.fe-dev.26.4.3"],
-    )
+def test_semantic_versions_returns_names_for_the_requested_status(tmp_path: Path) -> None:
+    requests = []
 
-    response = client.get("/api/unreleased-semantic-versions")
+    def lister(status: str, project_key: str) -> list[str]:
+        requests.append((status, project_key))
+        return ["Config.core-dev-1.26.4.4", "Deploy.fe-dev.26.4.3"]
+
+    client = make_client(tmp_path, semantic_version_lister=lister)
+
+    response = client.get("/api/semantic-versions", params={"status": "archived", "project_key": "ABC"})
 
     assert response.status_code == 200
     assert response.json() == ["Config.core-dev-1.26.4.4", "Deploy.fe-dev.26.4.3"]
+    assert requests == [("archived", "ABC")]
 
 
-def test_unreleased_semantic_versions_reports_jira_failure(tmp_path: Path) -> None:
-    def fail() -> list[str]:
+def test_semantic_versions_default_to_unreleased_for_igm(tmp_path: Path) -> None:
+    requests = []
+
+    def lister(status: str, project_key: str) -> list[str]:
+        requests.append((status, project_key))
+        return []
+
+    make_client(tmp_path, semantic_version_lister=lister).get("/api/semantic-versions")
+
+    assert requests == [("unreleased", "IGM")]
+
+
+def test_semantic_versions_reject_unknown_status_and_project_key(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+
+    assert client.get("/api/semantic-versions", params={"status": "deleted"}).status_code == 422
+    assert client.get("/api/semantic-versions", params={"project_key": "bad key"}).status_code == 422
+
+
+def test_semantic_versions_report_jira_failure(tmp_path: Path) -> None:
+    def fail(status: str, project_key: str) -> list[str]:
         raise RuntimeError("JIRA_TOKEN environment variable is not configured")
 
-    response = make_client(tmp_path, unreleased_version_lister=fail).get(
-        "/api/unreleased-semantic-versions"
-    )
+    response = make_client(tmp_path, semantic_version_lister=fail).get("/api/semantic-versions")
 
     assert response.status_code == 503
 

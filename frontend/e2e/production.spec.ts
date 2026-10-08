@@ -11,6 +11,6 @@ test('displays service versions from FastAPI', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: 'Service Versions Without a Release Date' })
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Load report' }).click();
+  await page.getByRole('button', { name: 'Load Report' }).click();
   await expect(page.locator('li')).toHaveCount(2);
 });

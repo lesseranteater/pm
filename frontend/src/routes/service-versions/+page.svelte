@@ -1,11 +1,46 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import VersionSelect from '$lib/VersionSelect.svelte';
   import { getServiceVersions, type ServiceVersion } from '$lib/service-versions';
+  import { getSemanticVersions, type VersionStatus } from '$lib/semantic-versions';
+
+  const statusOptions: { value: VersionStatus; label: string }[] = [
+    { value: 'unreleased', label: 'Unreleased' },
+    { value: 'released', label: 'Released' },
+    { value: 'archived', label: 'Archived' }
+  ];
 
   let projectKey = $state('IGM');
-  let releaseVersion = $state('Deploy.ai-data.26.4.1');
+  let status = $state<VersionStatus>('unreleased');
+  let releaseVersion = $state('');
+  let releaseVersions = $state<string[]>([]);
+  let loadingVersions = $state(true);
   let versions = $state<ServiceVersion[] | null>(null);
   let error = $state('');
   let pending = $state(false);
+  let latestVersionsRequest = 0;
+
+  async function loadReleaseVersions() {
+    const request = ++latestVersionsRequest;
+    error = '';
+    loadingVersions = true;
+    versions = null;
+    try {
+      const names = await getSemanticVersions(status, projectKey);
+      if (request !== latestVersionsRequest) return;
+      releaseVersions = names;
+      releaseVersion = names[0] ?? '';
+    } catch {
+      if (request !== latestVersionsRequest) return;
+      releaseVersions = [];
+      releaseVersion = '';
+      error = 'Unable to load deployment versions.';
+    } finally {
+      if (request === latestVersionsRequest) loadingVersions = false;
+    }
+  }
+
+  onMount(loadReleaseVersions);
 
   async function loadServiceVersions() {
     error = '';
@@ -34,11 +69,40 @@
         void loadServiceVersions();
       }}
     >
-      <label for="project-key">Project key</label>
-      <input id="project-key" bind:value={projectKey} maxlength="10" required />
-      <label for="release-version">Deployment version</label>
-      <input id="release-version" bind:value={releaseVersion} maxlength="120" required />
-      <button type="submit" disabled={pending}>{pending ? 'Loading...' : 'Load report'}</button>
+      <label for="project-key">Project Key</label>
+      <input
+        id="project-key"
+        bind:value={projectKey}
+        onchange={() => void loadReleaseVersions()}
+        maxlength="10"
+        required
+      />
+      <fieldset>
+        <legend>Release Version Status</legend>
+        {#each statusOptions as option (option.value)}
+          <label>
+            <input
+              type="radio"
+              name="release-version-status"
+              value={option.value}
+              bind:group={status}
+              onchange={() => void loadReleaseVersions()}
+            />
+            {option.label}
+          </label>
+        {/each}
+      </fieldset>
+      <label for="release-version">Deployment Version</label>
+      <VersionSelect
+        id="release-version"
+        bind:value={releaseVersion}
+        options={releaseVersions}
+        disabled={loadingVersions}
+        placeholder={loadingVersions ? 'Loading versions...' : `No ${status} versions`}
+      />
+      <button type="submit" disabled={pending || !releaseVersion}
+        >{pending ? 'Loading...' : 'Load Report'}</button
+      >
     </form>
     {#if error}
       <p class="error" role="alert">{error}</p>
