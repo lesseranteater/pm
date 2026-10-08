@@ -44,6 +44,11 @@ body {
   margin: 0;
 }
 
+html {
+  /* Keep focused fields and scrolled-to elements clear of the sticky header. */
+  scroll-padding-top: 6rem;
+}
+
 :focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
@@ -52,10 +57,15 @@ body {
 /* ------------------------------------------------------------------------
    Header
    ------------------------------------------------------------------------ */
+/* The header stays at the top while the page scrolls underneath it. */
 .app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   border-bottom: 3px solid var(--accent);
   background: var(--ink);
   color: #fff;
+  box-shadow: 0 0.25rem 0.75rem -0.25rem rgb(35 33 35 / 45%);
 }
 
 .app-header-inner {
@@ -470,6 +480,24 @@ fieldset input {
     align-items: stretch;
     flex-direction: column;
     gap: 0.35rem;
+  }
+
+  /* A sticky header takes screen space, so keep it compact on phones. */
+  .app-header-inner {
+    gap: 0.5rem;
+    padding: 0.625rem 0;
+  }
+
+  .brand {
+    font-size: 1.35rem;
+  }
+
+  .brand::before {
+    height: 1.2rem;
+  }
+
+  html {
+    scroll-padding-top: 8rem;
   }
 }
 
