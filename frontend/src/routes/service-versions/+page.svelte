@@ -118,6 +118,9 @@
               onchange={() => void loadReleaseVersions()}
             />
             {option.label}
+            {#if option.value === status && !loadingVersions && !error}
+              <span class="count">({releaseVersions.length})</span>
+            {/if}
           </label>
         {/each}
       </fieldset>

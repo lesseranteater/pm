@@ -31,12 +31,15 @@ test('displays the service versions returned by the API', async ({ page }) => {
     page.getByRole('heading', { name: 'Service Versions Without a Release Date' })
   ).toBeVisible();
   await expect(page.getByRole('radio', { name: 'Unreleased' })).toBeChecked();
+  await expect(page.getByText('(2)', { exact: true })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Deployment Version' })).toHaveValue(
     'Deploy.ai-data.26.4.1'
   );
 
   await page.getByLabel('Project Key').fill('ABC');
   await page.getByRole('radio', { name: 'Archived' }).check();
+  await expect(page.getByText('(1)', { exact: true })).toBeVisible();
+  await expect(page.getByText('(2)', { exact: true })).toBeHidden();
   await expect(page.getByRole('combobox', { name: 'Deployment Version' })).toHaveValue(
     'Deploy.fe-dev.26.2.1'
   );
