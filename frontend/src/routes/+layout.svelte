@@ -24,8 +24,8 @@
   }
 </script>
 
-<div class="app-shell">
-  <header class="app-header">
+<header class="app-header">
+  <div class="app-header-inner">
     <a class="brand" href={resolve('/service-versions')}>Release Tools</a>
     <div class="script-selector">
       <label for="script">Select a Tool</label>
@@ -35,6 +35,8 @@
         {/each}
       </select>
     </div>
-  </header>
+  </div>
+</header>
+<div class="app-shell">
   {@render children()}
 </div>

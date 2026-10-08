@@ -1,9 +1,33 @@
 @import 'tailwindcss';
 
+/* ------------------------------------------------------------------------
+   Design tokens: the EGT Digital palette. Signal red on charcoal and white,
+   with neutral greys.
+   ------------------------------------------------------------------------ */
 :root {
-  font-family: system-ui, sans-serif;
-  color: #1f2937;
-  background: #f8fafc;
+  --ink: #232123;
+  --ink-raised: #323033;
+  --ink-line: #4d4b4e;
+  --paper: #f7f7f7;
+  --surface: #ffffff;
+  --line: #dcdcdc;
+  --line-strong: #8d8d8d;
+  --text: #414042;
+  --heading: #232123;
+  --muted: #646265;
+  --accent: #e42314;
+  --accent-strong: #bc1c10;
+  --danger-bg: #fdeceb;
+  --danger-text: #7a120a;
+  --log-warning: #fbbf24;
+
+  --font-sans: Montserrat, 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --font-display: Montserrat, 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+
+  font-family: var(--font-sans);
+  color: var(--text);
+  background: var(--paper);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -13,37 +37,98 @@
 }
 
 body {
-  display: grid;
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  place-items: start center;
+  /* A faint engineering grid behind the content. */
+  background-image:
+    linear-gradient(rgb(35 33 35 / 4%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(35 33 35 / 4%) 1px, transparent 1px);
+  background-size: 2.5rem 2.5rem;
 }
 
-.app-shell {
-  width: min(100% - 2rem, 72rem);
-  margin: 2rem 0;
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
-.app-header,
-.script-selector {
+/* ------------------------------------------------------------------------
+   Header
+   ------------------------------------------------------------------------ */
+.app-header {
+  border-bottom: 3px solid var(--accent);
+  background: var(--ink);
+  color: #fff;
+}
+
+.app-header-inner {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
+  width: min(100% - 2rem, 72rem);
+  margin: 0 auto;
+  padding: 1rem 0;
 }
 
-.app-header {
-  justify-content: space-between;
-  margin-bottom: 1rem;
+.app-header :focus-visible {
+  outline-color: #fff;
 }
 
 .brand {
-  color: #1e293b;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #fff;
+  font-family: var(--font-display);
   font-size: 1.75rem;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.06em;
   line-height: 1.1;
   text-decoration: none;
+  text-transform: uppercase;
+}
+
+.brand::before {
+  content: '';
+  width: 0.55rem;
+  height: 1.6rem;
+  background: var(--accent);
+  transform: skewX(-18deg);
+}
+
+.script-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.script-selector label {
+  color: #c4c2c5;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.script-selector select {
+  min-width: 18rem;
+  border-color: var(--ink-line);
+  border-radius: 2px;
+  color: #fff;
+  background: var(--ink-raised);
+  cursor: pointer;
+}
+
+.script-selector select:hover {
+  border-color: var(--accent);
+}
+
+/* ------------------------------------------------------------------------
+   Page card
+   ------------------------------------------------------------------------ */
+.app-shell {
+  width: min(100% - 2rem, 72rem);
+  margin: 2rem auto 3rem;
 }
 
 main {
@@ -51,125 +136,214 @@ main {
 }
 
 section {
-  padding: clamp(2rem, 8vw, 5rem);
-  border: 1px solid #e2e8f0;
-  border-radius: 1rem;
-  background: white;
-  box-shadow: 0 1rem 3rem rgb(15 23 42 / 8%);
+  position: relative;
+  padding: clamp(1.5rem, 6vw, 4rem);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--surface);
+  box-shadow: 0 1.5rem 2.5rem -1.75rem rgb(35 33 35 / 45%);
 }
 
-.eyebrow {
-  margin: 0 0 0.75rem;
-  color: #475569;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-transform: uppercase;
+/* The accent notch that marks the top of the card. */
+section::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 6rem;
+  height: 5px;
+  background: var(--accent);
+}
+
+section::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 6rem;
+  right: -1px;
+  height: 1px;
+  background: var(--ink);
 }
 
 h1 {
   margin: 0;
-  font-size: clamp(1.5rem, 3vw, 2rem);
-  letter-spacing: -0.04em;
+  color: var(--heading);
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3.2vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
 }
 
-.message,
+.intro {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+}
+
 .error {
   margin: 1.5rem 0 0;
-  font-size: 1.125rem;
+  padding: 0.75rem;
+  border-left: 4px solid var(--accent-strong);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  font-size: 1rem;
 }
 
-.error {
-  color: #b91c1c;
-}
-
+/* ------------------------------------------------------------------------
+   Forms
+   ------------------------------------------------------------------------ */
 form {
   display: grid;
   gap: 0.5rem;
-  margin-top: 1.5rem;
+  margin-top: 1.75rem;
 }
 
-label {
-  font-weight: 600;
+label,
+legend {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+form > label {
+  margin-top: 0.5rem;
 }
 
 input,
 select,
-textarea,
 button {
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   padding: 0.5rem 0.75rem;
-  border: 1px solid #94a3b8;
-  border-radius: 0.375rem;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 2px;
   font: inherit;
 }
 
+input[type='text'],
+input:not([type]),
+input[type='date'] {
+  background: var(--surface);
+  color: var(--text);
+}
+
+input:hover:not(:disabled),
+select:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+
+input:disabled {
+  background: #ececec;
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+input::placeholder {
+  color: #6f6d70;
+  opacity: 1;
+}
+
 button {
-  margin-top: 0.5rem;
-  border-color: #1e3a8a;
-  color: white;
-  background: #1e3a8a;
+  margin-top: 0.75rem;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   cursor: pointer;
+  transition:
+    background-color 120ms,
+    color 120ms;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
 }
 
 button:disabled {
-  cursor: wait;
-  opacity: 0.65;
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 fieldset {
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
   margin: 0;
-  padding: 0.75rem;
-  border: 1px solid #94a3b8;
-  border-radius: 0.375rem;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 2px;
+}
+
+legend {
+  padding: 0 0.4rem;
 }
 
 fieldset label {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  font-weight: 400;
+  gap: 0.4rem;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
 }
 
 fieldset input {
   min-height: auto;
   padding: 0;
+  accent-color: var(--accent);
 }
 
-textarea {
-  width: 100%;
-  resize: vertical;
-  margin-top: 0.5rem;
-  background: #0f172a;
-  color: #e2e8f0;
-  font-family: ui-monospace, monospace;
-  font-size: 0.8125rem;
-  line-height: 1.5;
+.count {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
 }
 
-/* Custom dropdown: always opens below the field and scrolls with the mouse wheel. */
+.notice {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 1rem;
+  border-left: 4px solid var(--text);
+  background: #efefef;
+  color: var(--text);
+}
+
+.notice-warning {
+  border-left-color: var(--accent);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+/* ------------------------------------------------------------------------
+   Version dropdown (fuzzy search combobox)
+   ------------------------------------------------------------------------ */
 .version-select {
   position: relative;
 }
 
 .version-select .version-select-input {
   width: 100%;
-  padding-right: 2rem;
-  color: inherit;
-  background: white;
+  padding-right: 2.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
   text-overflow: ellipsis;
 }
 
 .version-select::after {
   content: '';
   position: absolute;
-  top: 1.25rem;
-  right: 0.9rem;
+  top: 1.375rem;
+  right: 1rem;
   width: 0.5rem;
   height: 0.5rem;
-  border-right: 2px solid #475569;
-  border-bottom: 2px solid #475569;
+  border-right: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
   pointer-events: none;
   transform: translateY(-75%) rotate(45deg);
 }
@@ -196,103 +370,96 @@ textarea {
   padding: 0.25rem;
   overflow-y: auto;
   overscroll-behavior: contain;
-  border: 1px solid #94a3b8;
-  border-radius: 0.375rem;
-  background: white;
-  box-shadow: 0 0.5rem 1.5rem rgb(15 23 42 / 15%);
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  background: var(--surface);
+  box-shadow: 0 1rem 2rem -0.5rem rgb(35 33 35 / 40%);
 }
 
 .version-select-option {
-  padding: 0.375rem 0.5rem;
-  border-radius: 0.25rem;
+  padding: 0.4rem 0.6rem;
+  border-left: 3px solid transparent;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
   cursor: pointer;
 }
 
-.version-select-option mark {
-  background: #fde68a;
-  color: inherit;
-  border-radius: 0.125rem;
-}
-
-.version-select-empty {
-  padding: 0.5rem;
-  color: #475569;
-}
-
 .version-select-option.active {
-  background: #e2e8f0;
+  border-left-color: var(--accent);
+  background: var(--ink);
+  color: #fff;
 }
 
 .version-select-option[aria-selected='true'] {
-  font-weight: 600;
+  font-weight: 700;
 }
 
-.intro {
-  margin: 0.75rem 0 0;
-  color: #475569;
+.version-select-option mark {
+  border-radius: 1px;
+  background: var(--accent);
+  color: #fff;
 }
 
-.notice {
-  margin: 0.5rem 0 0;
-  padding: 0.75rem;
-  border-left: 3px solid #94a3b8;
-  border-radius: 0.25rem;
-  background: #f1f5f9;
-  color: #334155;
+.version-select-empty {
+  padding: 0.5rem 0.6rem;
+  color: var(--muted);
 }
 
-.notice-warning {
-  border-left-color: #f59e0b;
-  background: #fffbeb;
-  color: #78350f;
-}
-
+/* ------------------------------------------------------------------------
+   Script log
+   ------------------------------------------------------------------------ */
 .log-label {
-  margin: 2rem 0 0;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 2.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.log-label::before {
+  content: '';
+  width: 0.6rem;
+  height: 0.6rem;
+  background: var(--accent);
+  outline: 2px solid var(--ink);
 }
 
 .release-log {
   max-height: 28rem;
   margin: 0.5rem 0 0;
-  padding: 0.5rem 0.75rem;
+  padding: 0.75rem 1rem;
   overflow: auto;
-  border: 1px solid #94a3b8;
-  border-radius: 0.375rem;
-  background: #0f172a;
-  color: #e2e8f0;
-  font-family: ui-monospace, monospace;
+  border: 1px solid var(--ink);
+  border-left: 4px solid var(--accent);
+  border-radius: 2px;
+  background: var(--ink);
+  color: #e9e8ea;
+  font-family: var(--font-mono);
   font-size: 0.8125rem;
-  line-height: 1.5;
+  line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .release-log .log-warning {
   display: block;
-  margin: 0 -0.75rem;
-  padding: 0 0.75rem;
-  border-left: 3px solid #fbbf24;
-  background: rgb(251 191 36 / 18%);
+  margin: 0 -1rem;
+  padding: 0 1rem 0 calc(1rem - 3px);
+  border-left: 3px solid var(--log-warning);
+  background: rgb(251 191 36 / 16%);
   color: #fde68a;
 }
 
-ul {
-  display: grid;
-  gap: 0.5rem;
-  margin: 1.5rem 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-li {
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  background: #f1f5f9;
-}
-
-@media (max-width: 36rem) {
-  .app-header {
+/* ------------------------------------------------------------------------
+   Small screens
+   ------------------------------------------------------------------------ */
+@media (max-width: 48rem) {
+  .app-header-inner {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -304,5 +471,20 @@ li {
 
   .script-selector select {
     flex: 1;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 36rem) {
+  .script-selector {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
   }
 }
