@@ -80,13 +80,13 @@
 </script>
 
 <svelte:head>
-  <title>Service Versions Without a Release Date</title>
+  <title>List Service Versions Without a Release Date</title>
   <meta name="description" content="Jira service versions without a release date." />
 </svelte:head>
 
 <main>
   <section aria-labelledby="page-title">
-    <h1 id="page-title">Service Versions Without a Release Date</h1>
+    <h1 id="page-title">List Service Versions Without a Release Date</h1>
     <form
       onsubmit={(event) => {
         event.preventDefault();

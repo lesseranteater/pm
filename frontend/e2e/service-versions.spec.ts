@@ -28,7 +28,7 @@ test('displays the service versions returned by the API', async ({ page }) => {
   await page.goto('/service-versions');
 
   await expect(
-    page.getByRole('heading', { name: 'Service Versions Without a Release Date' })
+    page.getByRole('heading', { name: 'List Service Versions Without a Release Date' })
   ).toBeVisible();
   await expect(page.getByRole('radio', { name: 'Unreleased' })).toBeChecked();
   await expect(page.getByText('(2)', { exact: true })).toBeVisible();
