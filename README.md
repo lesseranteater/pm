@@ -38,7 +38,7 @@ key and release version, then load the report. The frontend sends those values
 to `POST /api/service-versions`; the Jira token remains server-side. `GET
 /api/health` reports backend health.
 
-The **Release semantic version** script accepts a deployment version and a Dry
+The **Release a Semantic Version** script accepts a deployment version and a Dry
 Run choice. It returns its Jira workflow log in the browser. Choosing **No** for
 Dry Run applies Jira changes.
 

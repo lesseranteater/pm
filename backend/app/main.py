@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 from .main_paths import PROJECT_ROOT
-from .release_semantic_version import release_semantic_version
+from .release_semantic_version import get_unreleased_semantic_versions, release_semantic_version
 from .service_versions import (
     ServiceVersion,
     get_service_versions_without_release_date,
@@ -68,6 +68,7 @@ def create_app(
     frontend_build_dir: Path | str | None = None,
     service_version_reporter: Callable[[str, str], list[ServiceVersion]] = get_service_versions_without_release_date,
     semantic_version_releaser: Callable[[str, bool], str] = release_semantic_version,
+    unreleased_version_lister: Callable[[], list[str]] = get_unreleased_semantic_versions,
 ) -> FastAPI:
     build_dir = Path(
         frontend_build_dir or os.environ.get("FRONTEND_BUILD_DIR", DEFAULT_FRONTEND_BUILD)
@@ -90,6 +91,17 @@ def create_app(
             raise HTTPException(
                 status_code=503,
                 detail="Unable to retrieve service versions from Jira",
+            ) from None
+
+    @app.get("/api/unreleased-semantic-versions", tags=["release-semantic-version"])
+    async def unreleased_semantic_versions() -> list[str]:
+        try:
+            return unreleased_version_lister()
+        except Exception:
+            log.exception("Unable to retrieve unreleased semantic versions")
+            raise HTTPException(
+                status_code=503,
+                detail="Unable to retrieve unreleased semantic versions",
             ) from None
 
     @app.post("/api/release-semantic-version", tags=["release-semantic-version"])

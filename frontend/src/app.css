@@ -21,7 +21,7 @@ body {
 }
 
 .app-shell {
-  width: min(100% - 2rem, 42rem);
+  width: min(100% - 2rem, 72rem);
   margin: 2rem 0;
 }
 
@@ -39,7 +39,10 @@ body {
 
 .brand {
   color: #1e293b;
-  font-weight: 700;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
   text-decoration: none;
 }
 
@@ -152,6 +155,36 @@ textarea {
   font-family: ui-monospace, monospace;
   font-size: 0.8125rem;
   line-height: 1.5;
+}
+
+.log-label {
+  margin: 2rem 0 0;
+  font-weight: 600;
+}
+
+.release-log {
+  max-height: 28rem;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  overflow: auto;
+  border: 1px solid #94a3b8;
+  border-radius: 0.375rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.release-log .log-warning {
+  display: block;
+  margin: 0 -0.75rem;
+  padding: 0 0.75rem;
+  border-left: 3px solid #fbbf24;
+  background: rgb(251 191 36 / 18%);
+  color: #fde68a;
 }
 
 ul {

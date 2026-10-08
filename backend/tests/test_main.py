@@ -19,12 +19,14 @@ def make_client(
     tmp_path: Path,
     service_version_reporter=lambda project_key, release_version: [],
     semantic_version_releaser=lambda version_name, is_dry_run: "",
+    unreleased_version_lister=lambda: [],
 ) -> TestClient:
     return TestClient(
         create_app(
             make_frontend_build(tmp_path),
             service_version_reporter,
             semantic_version_releaser,
+            unreleased_version_lister,
         )
     )
 
@@ -104,6 +106,29 @@ def test_release_semantic_version_rejects_invalid_version(tmp_path: Path) -> Non
     )
 
     assert response.status_code == 422
+
+
+def test_unreleased_semantic_versions_returns_names(tmp_path: Path) -> None:
+    client = make_client(
+        tmp_path,
+        unreleased_version_lister=lambda: ["Config.core-dev-1.26.4.4", "Deploy.fe-dev.26.4.3"],
+    )
+
+    response = client.get("/api/unreleased-semantic-versions")
+
+    assert response.status_code == 200
+    assert response.json() == ["Config.core-dev-1.26.4.4", "Deploy.fe-dev.26.4.3"]
+
+
+def test_unreleased_semantic_versions_reports_jira_failure(tmp_path: Path) -> None:
+    def fail() -> list[str]:
+        raise RuntimeError("JIRA_TOKEN environment variable is not configured")
+
+    response = make_client(tmp_path, unreleased_version_lister=fail).get(
+        "/api/unreleased-semantic-versions"
+    )
+
+    assert response.status_code == 503
 
 
 def test_frontend_root_serves_index(tmp_path: Path) -> None:

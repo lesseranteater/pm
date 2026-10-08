@@ -10,10 +10,10 @@ test('displays the service versions returned by the API', async ({ page }) => {
     });
   });
 
-  await page.goto('/');
+  await page.goto('/service-versions');
 
   await expect(
-    page.getByRole('heading', { name: 'Service versions without a release date' })
+    page.getByRole('heading', { name: 'Service Versions Without a Release Date' })
   ).toBeVisible();
   await page.getByLabel('Project key').fill('ABC');
   await page.getByLabel('Deployment version').fill('Deploy.ai-data.26.4.1');

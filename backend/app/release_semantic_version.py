@@ -187,6 +187,12 @@ def list_unreleased_semantic_versions(jira: JIRA, project_key: str) -> list[str]
     )
 
 
+def get_unreleased_semantic_versions() -> list[str]:
+    """Return names of unreleased semantic versions in the configured project."""
+
+    return list_unreleased_semantic_versions(create_jira_client(), PROJECT_KEY)
+
+
 def search_all_issues(
     jira: JIRA,
     jql: str,
@@ -953,10 +959,6 @@ def _release_version(jira: JIRA, version_name: str, is_dry_run: bool) -> None:
 
     if is_dry_run:
         log.info("DRY RUN enabled: Jira updates will not be executed.")
-
-    log.info("Unreleased semantic versions:")
-    unreleased_semantic_versions = list_unreleased_semantic_versions(jira, PROJECT_KEY)
-    log.info("%s", "\n".join(unreleased_semantic_versions) if unreleased_semantic_versions else "None")
 
     # ========================================================================
     # FIND VERSION
