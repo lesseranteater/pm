@@ -47,14 +47,14 @@ def parse_release_date(version: Version) -> date | None:
         return None
 
 
-def find_versions_to_archive(versions: Iterable[Version], today: date) -> list[Version]:
-    """Return released, unarchived versions whose release date is before ``today``."""
+def find_versions_to_archive(versions: Iterable[Version], archive_until: date) -> list[Version]:
+    """Return released, unarchived versions released on or before ``archive_until``."""
     candidates = []
     for version in versions:
         if not _flag(version, "released") or _flag(version, "archived"):
             continue
         release_date = parse_release_date(version)
-        if release_date is not None and release_date < today:
+        if release_date is not None and release_date <= archive_until:
             candidates.append(version)
     return candidates
 
@@ -80,8 +80,9 @@ def archive_version(jira: JIRA, version: Version) -> None:
     response.raise_for_status()
 
 
-def _archive(jira: JIRA, project_key: str, is_dry_run: bool, today: date) -> None:
+def _archive(jira: JIRA, project_key: str, is_dry_run: bool, archive_until: date) -> None:
     log.info("Project: %s", project_key)
+    log.info("Archiving released versions with a release date on or before %s.", archive_until)
     log.info("Dry run: %s", is_dry_run)
     if is_dry_run:
         log.info("DRY RUN enabled: no versions will be archived.")
@@ -93,10 +94,10 @@ def _archive(jira: JIRA, project_key: str, is_dry_run: bool, today: date) -> Non
             raise ProjectNotFoundError(f"Jira project '{project_key}' was not found.") from error
         raise
 
-    semantic, service = group_versions(find_versions_to_archive(versions, today))
+    semantic, service = group_versions(find_versions_to_archive(versions, archive_until))
     candidates = semantic + service
     if not candidates:
-        log.info("No released versions with past release dates to archive.")
+        log.info("No released versions on or before %s to archive.", archive_until)
         return
 
     log.info("Found %d version(s) to archive:", len(candidates))
@@ -126,7 +127,7 @@ def _archive(jira: JIRA, project_key: str, is_dry_run: bool, today: date) -> Non
     log.info("Archived %d of %d version(s).", archived, len(candidates))
 
 
-def archive_released_versions(project_key: str, is_dry_run: bool) -> str:
+def archive_released_versions(project_key: str, is_dry_run: bool, archive_until: date) -> str:
     """Run the archive workflow and return its operational log."""
     output = io.StringIO()
     handler = logging.StreamHandler(output)
@@ -135,7 +136,7 @@ def archive_released_versions(project_key: str, is_dry_run: bool) -> str:
     with archive_lock:
         log.addHandler(handler)
         try:
-            _archive(create_jira_client(), project_key, is_dry_run, date.today())
+            _archive(create_jira_client(), project_key, is_dry_run, archive_until)
         except Exception:
             log.exception("Archive processing failed.")
         finally:

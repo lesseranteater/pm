@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -20,7 +21,7 @@ def make_client(
     service_version_reporter=lambda project_key, release_version: "",
     semantic_version_releaser=lambda version_name, is_dry_run: "",
     semantic_version_lister=lambda status, project_key: [],
-    released_version_archiver=lambda project_key, is_dry_run: "",
+    released_version_archiver=lambda project_key, is_dry_run, archive_until: "",
 ) -> TestClient:
     return TestClient(
         create_app(
@@ -169,34 +170,43 @@ def test_semantic_versions_report_jira_failure(tmp_path: Path) -> None:
 def test_archive_released_versions_returns_the_captured_log(tmp_path: Path) -> None:
     requests = []
 
-    def archive(project_key: str, is_dry_run: bool) -> str:
-        requests.append((project_key, is_dry_run))
+    def archive(project_key: str, is_dry_run: bool, archive_until: date) -> str:
+        requests.append((project_key, is_dry_run, archive_until))
         return "Dry run: no changes were made."
 
     response = make_client(tmp_path, released_version_archiver=archive).post(
         "/api/archive-released-versions",
-        json={"project_key": "IGM", "is_dry_run": True},
+        json={"project_key": "IGM", "is_dry_run": True, "archive_until": "2026-09-30"},
     )
 
     assert response.status_code == 200
     assert response.json() == {"log": "Dry run: no changes were made."}
-    assert requests == [("IGM", True)]
+    assert requests == [("IGM", True, date(2026, 9, 30))]
 
 
 def test_archive_released_versions_rejects_invalid_requests(tmp_path: Path) -> None:
     client = make_client(tmp_path)
 
-    assert client.post("/api/archive-released-versions", json={"project_key": "igm", "is_dry_run": True}).status_code == 422
-    assert client.post("/api/archive-released-versions", json={"project_key": "IGM"}).status_code == 422
+    valid = {"project_key": "IGM", "is_dry_run": True, "archive_until": "2026-09-30"}
+
+    def post(**changes):
+        return client.post("/api/archive-released-versions", json={**valid, **changes})
+
+    assert post(project_key="igm").status_code == 422
+    assert post(archive_until="not-a-date").status_code == 422
+    assert post(archive_until="2999-01-01").status_code == 422  # future dates are rejected
+    assert client.post(
+        "/api/archive-released-versions", json={"project_key": "IGM", "is_dry_run": True}
+    ).status_code == 422
 
 
 def test_archive_released_versions_reports_failure(tmp_path: Path) -> None:
-    def fail(project_key: str, is_dry_run: bool) -> str:
+    def fail(project_key: str, is_dry_run: bool, archive_until: date) -> str:
         raise RuntimeError("boom")
 
     response = make_client(tmp_path, released_version_archiver=fail).post(
         "/api/archive-released-versions",
-        json={"project_key": "IGM", "is_dry_run": False},
+        json={"project_key": "IGM", "is_dry_run": False, "archive_until": "2026-09-30"},
     )
 
     assert response.status_code == 503

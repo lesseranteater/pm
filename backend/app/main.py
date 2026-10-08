@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import date
 from pathlib import Path
 from typing import Callable, Literal
 
@@ -56,6 +57,14 @@ class ScriptLogResponse(BaseModel):
 class ArchiveRequest(BaseModel):
     project_key: str = Field(pattern=r"^[A-Z][A-Z0-9_]{1,9}$")
     is_dry_run: bool
+    archive_until: date
+
+    @field_validator("archive_until")
+    @classmethod
+    def validate_archive_until(cls, value: date) -> date:
+        if value > date.today():
+            raise ValueError("Archive date cannot be in the future")
+        return value
 
 
 def _frontend_file(build_dir: Path, request_path: str) -> Path | None:
@@ -73,7 +82,7 @@ def create_app(
     service_version_reporter: Callable[[str, str], str] = report_service_versions_without_release_date,
     semantic_version_releaser: Callable[[str, bool], str] = release_semantic_version,
     semantic_version_lister: Callable[[str, str], list[str]] = get_semantic_versions,
-    released_version_archiver: Callable[[str, bool], str] = archive_released_versions,
+    released_version_archiver: Callable[[str, bool, date], str] = archive_released_versions,
 ) -> FastAPI:
     build_dir = Path(
         frontend_build_dir or os.environ.get("FRONTEND_BUILD_DIR", DEFAULT_FRONTEND_BUILD)
@@ -120,7 +129,9 @@ def create_app(
     async def archive_versions(request: ArchiveRequest) -> ScriptLogResponse:
         try:
             return ScriptLogResponse(
-                log=released_version_archiver(request.project_key, request.is_dry_run)
+                log=released_version_archiver(
+                    request.project_key, request.is_dry_run, request.archive_until
+                )
             )
         except Exception:
             log.exception("Unable to archive released versions")

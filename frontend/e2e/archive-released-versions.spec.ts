@@ -16,13 +16,23 @@ test('loads without running and archives only after the button is clicked', asyn
   await expect(page.getByRole('heading', { name: 'Archive Released Versions' })).toBeVisible();
   await expect(page.getByRole('radio', { name: 'Yes' })).toBeChecked();
   await expect(page.getByLabel('Project Key')).toHaveValue('IGM');
+  await expect(page.getByLabel('Archive Versions Released Up To')).not.toHaveValue('');
   expect(requests).toEqual([]);
+
+  await page.getByLabel('Archive Versions Released Up To').fill('2026-09-30');
+  await expect(page.getByRole('note')).toContainText(
+    'on or before 30 September 2026 will be archived'
+  );
+  await expect(page.getByRole('note')).toContainText('Dry Run is on');
+  await page.getByRole('radio', { name: 'No' }).check();
+  await expect(page.getByRole('note')).toContainText('Dry Run is off');
+  await page.getByRole('radio', { name: 'Yes' }).check();
 
   await page.getByRole('button', { name: 'Archive Versions' }).click();
 
   await expect(page.getByRole('log', { name: 'Script Log' })).toContainText('Dry run');
   await expect(page.locator('.log-warning')).toHaveCount(1);
-  expect(requests).toEqual([{ project_key: 'IGM', is_dry_run: true }]);
+  expect(requests).toEqual([{ project_key: 'IGM', archive_until: '2026-09-30', is_dry_run: true }]);
 });
 
 test('is reachable from the script dropdown', async ({ page }) => {

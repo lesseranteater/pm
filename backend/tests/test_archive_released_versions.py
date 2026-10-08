@@ -36,8 +36,18 @@ class FakeJira:
         return self._versions
 
 
-def test_only_released_unarchived_past_versions_are_candidates() -> None:
+def test_only_released_unarchived_versions_up_to_the_date_are_candidates() -> None:
     names = [v.name for v in archive_released_versions.find_versions_to_archive(VERSIONS, TODAY)]
+
+    # The chosen date is inclusive; later, archived, unreleased and undated versions are skipped.
+    assert names == ["old-released", "same-day"]
+
+
+def test_an_earlier_date_selects_fewer_versions() -> None:
+    names = [
+        v.name
+        for v in archive_released_versions.find_versions_to_archive(VERSIONS, date(2026, 10, 7))
+    ]
 
     assert names == ["old-released"]
 
@@ -111,8 +121,7 @@ def run(monkeypatch, is_dry_run: bool, jira: FakeJira, archived: list[str], fail
 
     monkeypatch.setattr(archive_released_versions, "create_jira_client", lambda: jira)
     monkeypatch.setattr(archive_released_versions, "archive_version", fake_archive)
-    monkeypatch.setattr(archive_released_versions, "date", SimpleNamespace(today=lambda: TODAY))
-    return archive_released_versions.archive_released_versions("IGM", is_dry_run)
+    return archive_released_versions.archive_released_versions("IGM", is_dry_run, TODAY)
 
 
 def test_dry_run_lists_candidates_without_archiving(monkeypatch) -> None:
@@ -122,7 +131,8 @@ def test_dry_run_lists_candidates_without_archiving(monkeypatch) -> None:
 
     assert archived == []
     assert "DRY RUN enabled" in output
-    assert "Found 1 version(s) to archive:" in output
+    assert "Archiving released versions with a release date on or before 2026-10-08." in output
+    assert "Found 2 version(s) to archive:" in output
     assert "old-released" in output
     assert "Dry run: no changes were made." in output
 
@@ -132,9 +142,9 @@ def test_real_run_archives_candidates(monkeypatch) -> None:
 
     output = run(monkeypatch, False, FakeJira(), archived)
 
-    assert archived == ["old-released"]
+    assert archived == ["old-released", "same-day"]
     assert "Archiving old-released (id=1)..." in output
-    assert "Archived 1 of 1 version(s)." in output
+    assert "Archived 2 of 2 version(s)." in output
 
 
 def test_failed_archive_is_logged_as_a_warning_and_the_run_continues(monkeypatch) -> None:
@@ -154,7 +164,7 @@ def test_failed_archive_is_logged_as_a_warning_and_the_run_continues(monkeypatch
 def test_nothing_to_archive_is_reported(monkeypatch) -> None:
     output = run(monkeypatch, False, FakeJira([]), [])
 
-    assert "No released versions with past release dates to archive." in output
+    assert "No released versions on or before 2026-10-08 to archive." in output
 
 
 def test_unknown_project_is_logged_instead_of_raised(monkeypatch) -> None:
