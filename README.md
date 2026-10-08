@@ -40,18 +40,38 @@ report. The **List Service Versions Without a Release Date** script returns its 
 search log in the browser, based on
 `tools/list_service_versions_without_release_date.py`. The frontend sends those
 values to `POST /api/service-versions`; the Jira token remains server-side. `GET
-/api/health` reports backend health.
+/api/health` reports backend health and whether `JIRA_TOKEN` is configured; the
+home page shows a warning when it is not.
 
 The **Release a Deployment Version** script accepts a deployment version and a Dry
 Run choice. It returns its Jira workflow log in the browser. Choosing **No** for
 Dry Run applies Jira changes.
 
+Every tool streams its log to the page line by line while it runs. The log can be
+searched, limited to warnings and errors, copied, or downloaded, and it is marked
+out of date when the inputs change after a run. Failures are explained in plain
+language, for example an expired token or an unreachable Jira. Only one run at a
+time changes Jira; a second request waits and says so in its log.
+
+Tools that change Jira are protected in two steps. A live run (Dry Run set to
+**No**) is only available after a dry run with the same inputs has finished
+without errors, and it asks for confirmation before it starts. After a dry run, an
+**Apply These Changes** button offers the live run directly.
+
 The **Archive Released Versions** script archives every released Jira version in a
 project whose release date is on or before the date you pick (it defaults to
 yesterday, and future dates are rejected). It does nothing until you click
 **Archive Versions**. Dry Run defaults to **Yes**, which only lists the versions it
-would archive; choosing **No** archives them in Jira. The same logic is available
-from the command line in `tools/archive_released_versions_in_the_past.py`.
+would archive; choosing **No** archives them in Jira. The page shows how many
+versions match the chosen date before anything runs
+(`GET /api/archive-released-versions/preview`), and offers quick dates such as
+"End of last month". The same logic is available from the command line in
+`tools/archive_released_versions_in_the_past.py`.
+
+The script endpoints (`/api/service-versions`, `/api/release-semantic-version` and
+`/api/archive-released-versions`) respond with the log as streamed plain text. The
+old page addresses `/service-versions`, `/release-semantic-version` and
+`/release-a-semantic-version` redirect to the current ones.
 
 The cross-platform scripts build the frontend when needed and run the same
 combined application:

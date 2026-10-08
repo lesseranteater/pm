@@ -1,6 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { getSemanticVersions, SemanticVersionsError } from './semantic-versions';
+import { getSemanticVersions } from './semantic-versions';
+import { ApiError } from './stream';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -19,11 +20,19 @@ test('rejects an invalid response', async () => {
   await expect(getSemanticVersions('unreleased')).rejects.toThrow('invalid');
 });
 
-test('exposes the HTTP status when the request fails', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 404 })));
+test('exposes the status and the explanation when the request fails', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi
+      .fn()
+      .mockResolvedValue(
+        new Response('{"detail":"Jira project ABC was not found"}', { status: 404 })
+      )
+  );
 
   const failure = await getSemanticVersions('unreleased', 'ABC').catch((error: unknown) => error);
 
-  expect(failure).toBeInstanceOf(SemanticVersionsError);
-  expect((failure as SemanticVersionsError).status).toBe(404);
+  expect(failure).toBeInstanceOf(ApiError);
+  expect((failure as ApiError).status).toBe(404);
+  expect((failure as ApiError).detail).toBe('Jira project ABC was not found');
 });

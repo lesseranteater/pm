@@ -1,6 +1,19 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
+  import { getHealth } from '$lib/health';
   import { tools } from '$lib/tools';
+
+  let jiraConfigured = $state(true);
+
+  // A missing token is the most common reason every tool fails, so say so up front.
+  onMount(async () => {
+    try {
+      jiraConfigured = (await getHealth()).jiraConfigured;
+    } catch {
+      // If the check itself fails the tools will report their own errors.
+    }
+  });
 </script>
 
 <svelte:head>
@@ -14,6 +27,12 @@
 <main>
   <section class="splash" aria-labelledby="page-title">
     <h1 id="page-title">Release Management Tools</h1>
+    {#if !jiraConfigured}
+      <p class="error" role="alert">
+        Jira access is not configured, so the tools cannot reach Jira. Add JIRA_TOKEN to the .env
+        file in the project folder and restart the server.
+      </p>
+    {/if}
     <p class="lead">
       One place to run the Jira release scripts, with a log for every run. Each tool wraps a script
       the release team used to run by hand, so the steps are the same every time and nothing is
@@ -46,16 +65,17 @@
         you start it.
       </li>
       <li>
-        <strong>Run it and read the log.</strong> The script log shows every step, and warnings are highlighted.
+        <strong>Run it and read the log.</strong> The script log shows every step as it happens, and warnings
+        are highlighted.
       </li>
     </ol>
 
     <h2>Safe By Default</h2>
     <p class="notice">
-      Tools that change Jira start with <strong>Dry Run</strong> turned on, which only lists what
-      would happen. A run that will really change Jira turns the button red and labels it
-      <strong>(Live)</strong>. Nothing runs until you click the button, and the Jira token never
-      leaves the server.
+      Tools that change Jira start with <strong>Dry Run</strong> turned on, which only lists what would
+      happen. A live run is only available after a dry run with the same settings finishes without errors,
+      and you confirm it before it starts. Nothing runs until you click the button, and the Jira token
+      never leaves the server.
     </p>
   </section>
 </main>

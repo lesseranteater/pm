@@ -12,6 +12,20 @@ export function addDays(from: Date, days: number): Date {
   return result;
 }
 
+/** The last day of the month before `from`'s month. */
+export function endOfLastMonth(from: Date): Date {
+  return new Date(from.getFullYear(), from.getMonth(), 0);
+}
+
+/** A local timestamp that is safe in a file name, e.g. "20261008-214036". */
+export function toFileStamp(date: Date): string {
+  const two = (value: number) => String(value).padStart(2, '0');
+  return (
+    `${date.getFullYear()}${two(date.getMonth() + 1)}${two(date.getDate())}` +
+    `-${two(date.getHours())}${two(date.getMinutes())}${two(date.getSeconds())}`
+  );
+}
+
 /** Formats a YYYY-MM-DD value for display, e.g. "8 October 2026". Returns '' when invalid. */
 export function formatDateInputValue(value: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);

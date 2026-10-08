@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('executes the selected script route', async ({ page }) => {
-  await page.route('**/api/service-versions', (route) =>
+  await page.route('**/api/semantic-versions*', (route) =>
     route.fulfill({ contentType: 'application/json', body: '[]' })
   );
   await page.goto('/list-service-versions-without-a-release-date');

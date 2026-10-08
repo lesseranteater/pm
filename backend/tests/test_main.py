@@ -22,6 +22,8 @@ def make_client(
     semantic_version_releaser=lambda version_name, is_dry_run: "",
     semantic_version_lister=lambda status, project_key: [],
     released_version_archiver=lambda project_key, is_dry_run, archive_until: "",
+    released_version_previewer=lambda project_key, archive_until: {"count": 0, "semantic": 0, "service": 0},
+    jira_configured=lambda: True,
 ) -> TestClient:
     return TestClient(
         create_app(
@@ -30,6 +32,8 @@ def make_client(
             semantic_version_releaser,
             semantic_version_lister,
             released_version_archiver,
+            released_version_previewer,
+            jira_configured,
         )
     )
 
@@ -38,7 +42,13 @@ def test_health_endpoint(tmp_path: Path) -> None:
     response = make_client(tmp_path).get("/api/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "ok", "jira_configured": True}
+
+
+def test_health_endpoint_reports_missing_jira_configuration(tmp_path: Path) -> None:
+    response = make_client(tmp_path, jira_configured=lambda: False).get("/api/health")
+
+    assert response.json() == {"status": "ok", "jira_configured": False}
 
 
 def test_service_versions_endpoint_returns_the_report(tmp_path: Path) -> None:
@@ -59,7 +69,7 @@ def test_service_versions_endpoint_returns_the_report(tmp_path: Path) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json() == {"log": "Service version without release date: ignore-this.bo.26.4.1"}
+    assert response.text == "Service version without release date: ignore-this.bo.26.4.1"
     assert requested_parameters == [("IGM", "Deploy.ai-data.26.4.1")]
 
 
@@ -98,7 +108,7 @@ def test_release_semantic_version_returns_the_captured_log(tmp_path: Path) -> No
     )
 
     assert response.status_code == 200
-    assert response.json() == {"log": "DRY RUN: would release version"}
+    assert response.text == "DRY RUN: would release version"
     assert requests == [("Hotfix.ps-dev-1.26.4.3", True)]
 
 
@@ -180,7 +190,7 @@ def test_archive_released_versions_returns_the_captured_log(tmp_path: Path) -> N
     )
 
     assert response.status_code == 200
-    assert response.json() == {"log": "Dry run: no changes were made."}
+    assert response.text == "Dry run: no changes were made."
     assert requests == [("IGM", True, date(2026, 9, 30))]
 
 
@@ -238,3 +248,97 @@ def test_missing_frontend_build_returns_service_unavailable(tmp_path: Path) -> N
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Frontend build is not available"}
+
+
+def test_script_endpoints_stream_the_log_as_plain_text(tmp_path: Path) -> None:
+    def archive(project_key: str, is_dry_run: bool, archive_until: date):
+        yield "first line\n"
+        yield "second line\n"
+
+    response = make_client(tmp_path, released_version_archiver=archive).post(
+        "/api/archive-released-versions",
+        json={"project_key": "IGM", "is_dry_run": True, "archive_until": "2026-09-30"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert response.headers["cache-control"] == "no-store"
+    assert response.text == "first line\nsecond line\n"
+
+
+def test_archive_preview_returns_the_counts(tmp_path: Path) -> None:
+    requests = []
+
+    def preview(project_key: str, archive_until: date) -> dict[str, int]:
+        requests.append((project_key, archive_until))
+        return {"count": 3, "semantic": 2, "service": 1}
+
+    response = make_client(tmp_path, released_version_previewer=preview).get(
+        "/api/archive-released-versions/preview",
+        params={"project_key": "IGM", "archive_until": "2026-09-30"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"count": 3, "semantic": 2, "service": 1}
+    assert requests == [("IGM", date(2026, 9, 30))]
+
+
+def test_archive_preview_rejects_invalid_requests(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+    url = "/api/archive-released-versions/preview"
+
+    assert client.get(url, params={"project_key": "igm", "archive_until": "2026-09-30"}).status_code == 422
+    assert client.get(url, params={"project_key": "IGM", "archive_until": "nope"}).status_code == 422
+    assert client.get(url, params={"project_key": "IGM", "archive_until": "2999-01-01"}).status_code == 422
+    assert client.get(url, params={"archive_until": "2026-09-30"}).status_code == 422
+
+
+def test_archive_preview_reports_unknown_projects_and_failures(tmp_path: Path) -> None:
+    def missing(project_key: str, archive_until: date) -> dict[str, int]:
+        raise ProjectNotFoundError(project_key)
+
+    def rejected(project_key: str, archive_until: date) -> dict[str, int]:
+        raise RuntimeError("JIRA_TOKEN environment variable is not configured")
+
+    params = {"project_key": "ABC", "archive_until": "2026-09-30"}
+    url = "/api/archive-released-versions/preview"
+
+    not_found = make_client(tmp_path, released_version_previewer=missing).get(url, params=params)
+    assert not_found.status_code == 404
+    assert not_found.json() == {"detail": "Jira project ABC was not found"}
+
+    (tmp_path / "second").mkdir()
+    failed = make_client(tmp_path / "second", released_version_previewer=rejected).get(
+        url, params=params
+    )
+    assert failed.status_code == 503
+    assert "JIRA_TOKEN" in failed.json()["detail"]
+
+
+def test_semantic_versions_failures_explain_the_cause(tmp_path: Path) -> None:
+    from requests.exceptions import ConnectionError as RequestsConnectionError
+
+    def unreachable(status: str, project_key: str) -> list[str]:
+        raise RequestsConnectionError("dns failure for secret-host")
+
+    response = make_client(tmp_path, semantic_version_lister=unreachable).get("/api/semantic-versions")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Could not reach Jira. Check your network or VPN connection and try again."
+    }
+
+
+def test_renamed_pages_redirect_to_their_new_addresses(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+    expected = {
+        "/service-versions": "/list-service-versions-without-a-release-date",
+        "/service-versions/": "/list-service-versions-without-a-release-date",
+        "/release-semantic-version": "/release-a-deployment-version",
+        "/release-a-semantic-version": "/release-a-deployment-version",
+    }
+
+    for old, new in expected.items():
+        response = client.get(old, follow_redirects=False)
+        assert response.status_code == 308, old
+        assert response.headers["location"] == new, old

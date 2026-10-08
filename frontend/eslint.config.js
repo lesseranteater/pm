@@ -7,12 +7,16 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   ...svelte.configs['flat/recommended'],
   {
-    files: ['**/*.svelte'],
+    files: ['**/*.svelte', '**/*.svelte.ts'],
     languageOptions: {
       parserOptions: {
         parser: tseslint.parser
       }
     }
+  },
+  {
+    // TypeScript already reports undefined names, including browser globals.
+    rules: { 'no-undef': 'off' }
   },
   {
     ignores: ['.svelte-kit/**', 'build/**', 'node_modules/**', 'test-results/**']

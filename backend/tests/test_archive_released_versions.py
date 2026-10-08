@@ -174,3 +174,30 @@ def test_unknown_project_is_logged_instead_of_raised(monkeypatch) -> None:
 
     assert "| ERROR | Archive processing failed." in output
     assert "Jira project 'IGM' was not found." in output
+
+
+def test_preview_counts_the_versions_without_changing_anything(monkeypatch) -> None:
+    mixed = [
+        version("Deploy.fe-dev.26.3.6", True, False, "2026-01-02", id="1"),
+        version("Config.core-dev-1.26.4.4", True, False, "2026-01-03", id="2"),
+        version("sport-fe-1.36.0", True, False, "2026-01-04", id="3"),
+        version("too-new", True, False, "2026-12-01", id="4"),
+    ]
+    archived: list[str] = []
+    monkeypatch.setattr(archive_released_versions, "create_jira_client", lambda: FakeJira(mixed))
+    monkeypatch.setattr(archive_released_versions, "archive_version", lambda *_: archived.append("x"))
+
+    result = archive_released_versions.preview_archive("IGM", TODAY)
+
+    assert result == {"count": 3, "semantic": 2, "service": 1}
+    assert archived == []
+
+
+def test_preview_reports_an_unknown_project(monkeypatch) -> None:
+    import pytest
+
+    jira = FakeJira(error=JIRAError(status_code=404, text="missing"))
+    monkeypatch.setattr(archive_released_versions, "create_jira_client", lambda: jira)
+
+    with pytest.raises(archive_released_versions.ProjectNotFoundError):
+        archive_released_versions.preview_archive("ABC", TODAY)

@@ -1,15 +1,13 @@
-export async function getServiceVersions(
-  projectKey: string,
-  releaseVersion: string
-): Promise<string> {
-  const response = await globalThis.fetch('/api/service-versions', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ project_key: projectKey, release_version: releaseVersion })
-  });
-  if (!response.ok) throw new Error('Service version request failed');
+import { postStream } from '$lib/stream';
 
-  const body = (await response.json()) as { log?: unknown };
-  if (typeof body.log !== 'string') throw new Error('Service version response is invalid');
-  return body.log;
+export function getServiceVersions(
+  projectKey: string,
+  releaseVersion: string,
+  onText: (text: string) => void
+): Promise<void> {
+  return postStream(
+    '/api/service-versions',
+    { project_key: projectKey, release_version: releaseVersion },
+    onText
+  );
 }

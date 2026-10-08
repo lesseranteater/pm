@@ -1,20 +1,36 @@
-export async function archiveReleasedVersions(
+import { getJson, postStream } from '$lib/stream';
+
+export type ArchivePreview = { count: number; semantic: number; service: number };
+
+export function archiveReleasedVersions(
   projectKey: string,
   archiveUntil: string,
-  isDryRun: boolean
-): Promise<string> {
-  const response = await globalThis.fetch('/api/archive-released-versions', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      project_key: projectKey,
-      archive_until: archiveUntil,
-      is_dry_run: isDryRun
-    })
-  });
-  if (!response.ok) throw new Error('Archive request failed');
+  isDryRun: boolean,
+  onText: (text: string) => void
+): Promise<void> {
+  return postStream(
+    '/api/archive-released-versions',
+    { project_key: projectKey, archive_until: archiveUntil, is_dry_run: isDryRun },
+    onText
+  );
+}
 
-  const body = (await response.json()) as { log?: unknown };
-  if (typeof body.log !== 'string') throw new Error('Archive response is invalid');
-  return body.log;
+/** How many versions an archive run up to `archiveUntil` would touch. Changes nothing. */
+export async function getArchivePreview(
+  projectKey: string,
+  archiveUntil: string
+): Promise<ArchivePreview> {
+  const params = new URLSearchParams({ project_key: projectKey, archive_until: archiveUntil });
+  const body = (await getJson(
+    `/api/archive-released-versions/preview?${params}`
+  )) as Partial<ArchivePreview>;
+
+  if (
+    typeof body.count !== 'number' ||
+    typeof body.semantic !== 'number' ||
+    typeof body.service !== 'number'
+  ) {
+    throw new Error('Archive preview response is invalid');
+  }
+  return { count: body.count, semantic: body.semantic, service: body.service };
 }

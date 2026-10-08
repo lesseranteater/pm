@@ -6,17 +6,18 @@ writes to a request-scoped logger and returns the captured log to the caller.
 
 from __future__ import annotations
 
-import io
 import logging
 from datetime import date, datetime
 from threading import Lock
-from typing import Iterable
+from typing import Iterable, Iterator
 
 from jira import JIRA
 from jira.exceptions import JIRAError
 from jira.resources import Version
 
-from .release_semantic_version import ProjectNotFoundError, create_jira_client
+from .errors import ProjectNotFoundError
+from .release_semantic_version import create_jira_client
+from .script_runner import stream_script_log
 from .service_versions import is_semantic_release_version
 
 log = logging.getLogger("archive-released-versions")
@@ -127,19 +128,35 @@ def _archive(jira: JIRA, project_key: str, is_dry_run: bool, archive_until: date
     log.info("Archived %d of %d version(s).", archived, len(candidates))
 
 
-def archive_released_versions(project_key: str, is_dry_run: bool, archive_until: date) -> str:
-    """Run the archive workflow and return its operational log."""
-    output = io.StringIO()
-    handler = logging.StreamHandler(output)
-    handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(message)s"))
-    # The workflow changes shared Jira state, and its logger is request-scoped.
-    with archive_lock:
-        log.addHandler(handler)
-        try:
-            _archive(create_jira_client(), project_key, is_dry_run, archive_until)
-        except Exception:
-            log.exception("Archive processing failed.")
-        finally:
-            log.removeHandler(handler)
-    return output.getvalue()
+def stream_archive_released_versions(
+    project_key: str, is_dry_run: bool, archive_until: date
+) -> Iterator[str]:
+    """Run the archive workflow, yielding its operational log as it is written."""
+    return stream_script_log(
+        log,
+        archive_lock,
+        lambda: _archive(create_jira_client(), project_key, is_dry_run, archive_until),
+        "Archive processing failed.",
+    )
 
+
+def archive_released_versions(project_key: str, is_dry_run: bool, archive_until: date) -> str:
+    """Run the archive workflow and return its complete operational log."""
+    return "".join(stream_archive_released_versions(project_key, is_dry_run, archive_until))
+
+
+def preview_archive(project_key: str, archive_until: date) -> dict[str, int]:
+    """Count the versions an archive run would touch, without changing anything."""
+    try:
+        versions = create_jira_client().project_versions(project_key)
+    except JIRAError as error:
+        if error.status_code == 404:
+            raise ProjectNotFoundError(f"Jira project '{project_key}' was not found.") from error
+        raise
+
+    semantic, service = group_versions(find_versions_to_archive(versions, archive_until))
+    return {
+        "count": len(semantic) + len(service),
+        "semantic": len(semantic),
+        "service": len(service),
+    }

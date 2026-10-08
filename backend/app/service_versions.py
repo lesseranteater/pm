@@ -1,11 +1,13 @@
-import io
 import logging
 import os
 import re
 from threading import Lock
+from typing import Iterator
 
 from dotenv import load_dotenv
 from jira import JIRA
+
+from .script_runner import stream_script_log
 
 RELEASABLE_SUBTASK_TYPES = {"Sub-task", "Sub-bug"}
 PARENT_ISSUE_TYPES = {"Story", "Enabler", "Bug", "Config Change"}
@@ -98,18 +100,16 @@ def _report(jira: JIRA, project_key: str, release_version: str) -> None:
         log.info("Service version without release date: %s", result["service_version"])
 
 
+def stream_service_versions_report(project_key: str, release_version: str) -> Iterator[str]:
+    """Run the service version report, yielding its log as it is written."""
+    return stream_script_log(
+        log,
+        report_lock,
+        lambda: _report(_jira_client(), project_key, release_version),
+        "Service version report failed.",
+    )
+
+
 def report_service_versions_without_release_date(project_key: str, release_version: str) -> str:
-    """Run the service version report and return its operational log."""
-    output = io.StringIO()
-    handler = logging.StreamHandler(output)
-    handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(message)s"))
-    # The logger is shared, so serialize runs to keep each request's log separate.
-    with report_lock:
-        log.addHandler(handler)
-        try:
-            _report(_jira_client(), project_key, release_version)
-        except Exception:
-            log.exception("Service version report failed.")
-        finally:
-            log.removeHandler(handler)
-    return output.getvalue()
+    """Run the service version report and return its complete operational log."""
+    return "".join(stream_service_versions_report(project_key, release_version))

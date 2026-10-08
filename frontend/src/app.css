@@ -205,6 +205,7 @@ button {
 
 input[type='text'],
 input:not([type]),
+input[type='search'],
 input[type='date'] {
   background: var(--surface);
   color: var(--text);
@@ -634,9 +635,201 @@ fieldset input {
   font-weight: 700;
 }
 
+/* ------------------------------------------------------------------------
+   Run feedback: previews, the log toolbar, and the live-run confirmation
+   ------------------------------------------------------------------------ */
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+button.button-secondary[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #fff;
+}
+
+.preview {
+  min-height: 1.5rem;
+  margin: 0;
+  color: var(--muted);
+}
+
+.preview strong {
+  color: var(--heading);
+}
+
+.hint {
+  margin: 0;
+  color: var(--danger-text);
+  font-size: 0.875rem;
+}
+
+.log {
+  scroll-margin-top: 6rem;
+}
+
+.log-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.log-meta {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.log-status {
+  margin: 0.25rem 0 0.5rem;
+  color: var(--heading);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.spinner {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-right: 0.4rem;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  vertical-align: -0.1rem;
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.log-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0.5rem 0;
+}
+
+.log-count-problem {
+  color: var(--danger-text);
+  font-weight: 700;
+}
+
+.log-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0.5rem 0;
+}
+
+.log-search {
+  flex: 1 1 14rem;
+  max-width: 24rem;
+  min-height: 2.25rem;
+}
+
+label.log-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.log-filter input {
+  min-height: auto;
+  padding: 0;
+  accent-color: var(--ink);
+}
+
+.log-filter-count {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.release-log.stale {
+  opacity: 0.55;
+}
+
+.log-waiting {
+  margin: 0;
+  color: var(--muted);
+}
+
+.apply-callout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-left: 4px solid var(--accent);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.apply-callout p {
+  margin: 0;
+}
+
+.apply-callout button {
+  margin: 0;
+}
+
+.confirm-dialog {
+  width: min(100% - 2rem, 32rem);
+  padding: 1.5rem;
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1.5rem 3rem -1rem rgb(35 33 35 / 50%);
+}
+
+.confirm-dialog::backdrop {
+  background: rgb(35 33 35 / 60%);
+}
+
+.confirm-dialog h2 {
+  margin: 0 0 0.75rem;
+  color: var(--heading);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.confirm-dialog p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.confirm-actions button {
+  min-height: 2.5rem;
+  margin: 0;
+  padding: 0.5rem 1rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   button,
   .tool-card {
     transition: none;
+  }
+
+  .spinner {
+    animation: none;
   }
 }

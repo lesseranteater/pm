@@ -1,15 +1,13 @@
-export async function releaseSemanticVersion(
-  versionName: string,
-  isDryRun: boolean
-): Promise<string> {
-  const response = await globalThis.fetch('/api/release-semantic-version', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ version_name: versionName, is_dry_run: isDryRun })
-  });
-  if (!response.ok) throw new Error('Release request failed');
+import { postStream } from '$lib/stream';
 
-  const body = (await response.json()) as { log?: unknown };
-  if (typeof body.log !== 'string') throw new Error('Release response is invalid');
-  return body.log;
+export function releaseSemanticVersion(
+  versionName: string,
+  isDryRun: boolean,
+  onText: (text: string) => void
+): Promise<void> {
+  return postStream(
+    '/api/release-semantic-version',
+    { version_name: versionName, is_dry_run: isDryRun },
+    onText
+  );
 }

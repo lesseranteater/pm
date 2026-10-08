@@ -25,3 +25,29 @@ test('a tool card opens its tool and the logo returns home', async ({ page }) =>
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText('Safe By Default')).toBeVisible();
 });
+
+test('warns on the home page when Jira access is not configured', async ({ page }) => {
+  await page.route('**/api/health', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok', jira_configured: false })
+    })
+  );
+  await page.goto('/');
+
+  await expect(page.getByRole('alert')).toContainText('Jira access is not configured');
+  await expect(page.getByRole('alert')).toContainText('JIRA_TOKEN');
+});
+
+test('shows no warning on the home page when Jira access is configured', async ({ page }) => {
+  await page.route('**/api/health', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok', jira_configured: true })
+    })
+  );
+  await page.goto('/');
+
+  await expect(page.getByText('Safe By Default')).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});

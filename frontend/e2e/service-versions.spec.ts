@@ -18,10 +18,8 @@ test('displays the service versions returned by the API', async ({ page }) => {
   await page.route('**/api/service-versions', (route) => {
     requests.push(route.request().postDataJSON());
     return route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({
-        log: '2026-10-08 10:00:00,000 | INFO | Service versions without release date: 1\n2026-10-08 10:00:01,000 | WARNING | Check service.26.4.1'
-      })
+      contentType: 'text/plain; charset=utf-8',
+      body: '2026-10-08 10:00:00,000 | INFO | Service versions without release date: 1\n2026-10-08 10:00:01,000 | WARNING | Check service.26.4.1'
     });
   });
 

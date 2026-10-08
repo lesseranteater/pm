@@ -1,13 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import VersionSelect from '$lib/VersionSelect.svelte';
+  import { summarizeServiceVersions } from '$lib/log-summaries';
+  import { ScriptRun } from '$lib/run.svelte';
   import ScriptLog from '$lib/ScriptLog.svelte';
   import { getServiceVersions } from '$lib/service-versions';
-  import {
-    getSemanticVersions,
-    SemanticVersionsError,
-    type VersionStatus
-  } from '$lib/semantic-versions';
+  import { getSemanticVersions, type VersionStatus } from '$lib/semantic-versions';
+  import { ApiError } from '$lib/stream';
+  import VersionSelect from '$lib/VersionSelect.svelte';
 
   const statusOptions: { value: VersionStatus; label: string }[] = [
     { value: 'unreleased', label: 'Unreleased' },
@@ -15,23 +14,25 @@
     { value: 'archived', label: 'Archived' }
   ];
 
+  const PROJECT_KEY_PATTERN = /^[A-Z][A-Z0-9_]{1,9}$/;
+
+  const run = new ScriptRun();
+
   let projectKey = $state('IGM');
   let status = $state<VersionStatus>('unreleased');
   let releaseVersion = $state('');
   let releaseVersions = $state<string[]>([]);
   let loadingVersions = $state(true);
-  let log = $state('');
   let error = $state('');
-  let pending = $state(false);
   let latestVersionsRequest = 0;
 
-  const PROJECT_KEY_PATTERN = /^[A-Z][A-Z0-9_]{1,9}$/;
+  const signature = $derived(`${projectKey}|${releaseVersion}`);
+  const stale = $derived(run.status !== 'idle' && run.signature !== signature);
 
   async function loadReleaseVersions() {
     const request = ++latestVersionsRequest;
     error = '';
     loadingVersions = true;
-    log = '';
     if (!PROJECT_KEY_PATTERN.test(projectKey)) {
       releaseVersions = [];
       releaseVersion = '';
@@ -49,9 +50,11 @@
       releaseVersions = [];
       releaseVersion = '';
       error =
-        failure instanceof SemanticVersionsError && failure.status === 404
+        failure instanceof ApiError && failure.status === 404
           ? `Jira project ${projectKey} was not found.`
-          : 'Unable to load deployment versions.';
+          : failure instanceof ApiError && failure.detail
+            ? failure.detail
+            : 'Unable to load deployment versions.';
     } finally {
       if (request === latestVersionsRequest) loadingVersions = false;
     }
@@ -66,16 +69,13 @@
   onMount(loadReleaseVersions);
 
   async function loadServiceVersions() {
-    error = '';
-    log = '';
-    pending = true;
-    try {
-      log = await getServiceVersions(projectKey, releaseVersion);
-    } catch {
-      error = 'Unable to load service versions from the backend.';
-    } finally {
-      pending = false;
-    }
+    if (run.running || !releaseVersion) return;
+    const key = projectKey;
+    const version = releaseVersion;
+
+    await run.start({ description: `${key}, ${version}`, signature, dryRun: false }, (onText) =>
+      getServiceVersions(key, version, onText)
+    );
   }
 </script>
 
@@ -83,6 +83,12 @@
   <title>List Service Versions Without a Release Date</title>
   <meta name="description" content="Jira service versions without a release date." />
 </svelte:head>
+
+<svelte:window
+  onbeforeunload={(event) => {
+    if (run.running) event.preventDefault();
+  }}
+/>
 
 <main>
   <section aria-labelledby="page-title">
@@ -142,15 +148,24 @@
         {/if}
         It only reads from Jira, so nothing is changed.
       </p>
-      <button type="submit" disabled={pending || !releaseVersion}
-        >{pending ? 'Loading...' : 'Load Report'}</button
+      <button type="submit" disabled={run.running || !releaseVersion}
+        >{run.running ? 'Loading...' : 'Load Report'}</button
       >
     </form>
     {#if error}
       <p class="error" role="alert">{error}</p>
     {/if}
-    {#if log}
-      <ScriptLog id="service-versions-log" {log} />
+    {#if run.error}
+      <p class="error" role="alert">{run.error}</p>
+    {/if}
+    {#if run.status !== 'idle'}
+      <ScriptLog
+        id="service-versions-log"
+        {run}
+        {stale}
+        filename="list-service-versions"
+        summary={summarizeServiceVersions(run.log)}
+      />
     {/if}
   </section>
 </main>
