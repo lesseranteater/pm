@@ -24,6 +24,13 @@ test('submits release parameters and displays the captured log', async ({ page }
   await page.getByRole('combobox', { name: 'Unreleased Deployment Version' }).click();
   await page.getByRole('option', { name: 'Hotfix.ps-dev-1.26.4.3' }).click();
   await page.getByRole('radio', { name: 'Yes' }).check();
+  await expect(page.getByRole('note')).toContainText(
+    'Hotfix.ps-dev-1.26.4.3 will be released in Jira'
+  );
+  await expect(page.getByRole('note')).toContainText('Dry Run is on');
+  await page.getByRole('radio', { name: 'No' }).check();
+  await expect(page.getByRole('note')).toContainText('Dry Run is off');
+  await page.getByRole('radio', { name: 'Yes' }).check();
   await page.getByRole('button', { name: 'Release Version' }).click();
 
   await expect(page.getByRole('log', { name: 'Script Log' })).toContainText('DRY RUN complete');

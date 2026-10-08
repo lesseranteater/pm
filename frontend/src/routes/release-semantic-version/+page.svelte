@@ -65,6 +65,20 @@
         <label><input type="radio" bind:group={dryRun} value={true} /> Yes</label>
         <label><input type="radio" bind:group={dryRun} value={false} /> No</label>
       </fieldset>
+      <p class="notice" class:notice-warning={!dryRun} role="note">
+        {#if versionName}
+          <strong>{versionName}</strong> will be released in Jira. The script also updates the Release
+          State of the issues that carry it, comments on parent issues that are blocked, and publishes
+          parent issues that are ready.
+        {:else}
+          Choose an unreleased deployment version to see what will happen.
+        {/if}
+        {#if dryRun}
+          Dry Run is on, so nothing changes in Jira. The log lists the updates it would make.
+        {:else}
+          <strong>Dry Run is off: these changes will be applied in Jira.</strong>
+        {/if}
+      </p>
       <button type="submit" disabled={pending || !versionName}
         >{pending ? 'Releasing...' : 'Release Version'}</button
       >

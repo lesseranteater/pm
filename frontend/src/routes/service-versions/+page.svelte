@@ -132,6 +132,16 @@
         disabled={loadingVersions}
         placeholder={loadingVersions ? 'Loading versions...' : `No ${status} versions`}
       />
+      <p class="notice" role="note">
+        {#if releaseVersion}
+          The report searches {projectKey || 'the project'} for Story, Enabler, Bug and Config Change
+          issues assigned to <strong>{releaseVersion}</strong>, then lists the service versions on
+          their sub-tasks that have no release date.
+        {:else}
+          Choose a deployment version to see what the report will do.
+        {/if}
+        It only reads from Jira, so nothing is changed.
+      </p>
       <button type="submit" disabled={pending || !releaseVersion}
         >{pending ? 'Loading...' : 'Load Report'}</button
       >

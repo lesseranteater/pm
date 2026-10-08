@@ -56,6 +56,9 @@ test('displays the service versions returned by the API', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(deployment).toHaveValue('Deploy.fe-dev.26.3.6');
 
+  await expect(page.getByRole('note')).toContainText('assigned to Deploy.fe-dev.26.3.6');
+  await expect(page.getByRole('note')).toContainText('nothing is changed');
+
   await page.getByRole('button', { name: 'Load Report' }).click();
   await expect(page.getByRole('log', { name: 'Script Log' })).toContainText(
     'Service versions without release date: 1'
