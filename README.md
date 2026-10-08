@@ -42,6 +42,12 @@ The **Release a Semantic Version** script accepts a deployment version and a Dry
 Run choice. It returns its Jira workflow log in the browser. Choosing **No** for
 Dry Run applies Jira changes.
 
+The **Archive Released Versions** script archives every released Jira version in a
+project whose release date is before today. It does nothing until you click
+**Archive Versions**. Dry Run defaults to **Yes**, which only lists the versions it
+would archive; choosing **No** archives them in Jira. The same logic is available
+from the command line in `tools/archive_released_versions_in_the_past.py`.
+
 The cross-platform scripts build the frontend when needed and run the same
 combined application:
 

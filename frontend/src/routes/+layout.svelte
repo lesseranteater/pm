@@ -3,17 +3,23 @@
   import { page } from '$app/state';
   import '../app.css';
 
-  type ScriptRoute = '/service-versions' | '/release-semantic-version';
+  const scripts = [
+    { route: '/service-versions', title: 'Service Versions Without a Release Date' },
+    { route: '/release-semantic-version', title: 'Release a Semantic Version' },
+    { route: '/archive-released-versions', title: 'Archive Released Versions' }
+  ] as const;
 
-  const releaseRoute: ScriptRoute = '/release-semantic-version';
-  let selectedScript = $state<ScriptRoute>(page.url.pathname === releaseRoute ? releaseRoute : '/service-versions');
+  type ScriptRoute = (typeof scripts)[number]['route'];
+
+  let selectedScript = $state<ScriptRoute>(
+    scripts.find((script) => script.route === page.url.pathname)?.route ?? '/service-versions'
+  );
   let { children } = $props();
 
   function executeSelectedScript() {
     const scriptSelector = document.getElementById('script') as HTMLSelectElement;
     window.location.assign(resolve(scriptSelector.value as ScriptRoute));
   }
-
 </script>
 
 <div class="app-shell">
@@ -21,8 +27,9 @@
     <a class="brand" href={resolve('/service-versions')}>Release Tools</a>
     <div class="script-selector">
       <select id="script" aria-label="Script" bind:value={selectedScript}>
-        <option value="/service-versions">Service Versions Without a Release Date</option>
-        <option value={releaseRoute}>Release a Semantic Version</option>
+        {#each scripts as script (script.route)}
+          <option value={script.route}>{script.title}</option>
+        {/each}
       </select>
       <button type="button" onclick={executeSelectedScript}>Load</button>
     </div>

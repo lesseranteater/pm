@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
+from .archive_released_versions import archive_released_versions
 from .main_paths import PROJECT_ROOT
 from .release_semantic_version import (
     ProjectNotFoundError,
@@ -58,6 +59,11 @@ class SemanticReleaseResponse(BaseModel):
     log: str
 
 
+class ArchiveRequest(BaseModel):
+    project_key: str = Field(pattern=r"^[A-Z][A-Z0-9_]{1,9}$")
+    is_dry_run: bool
+
+
 def _frontend_file(build_dir: Path, request_path: str) -> Path | None:
     """Return a safe file inside the frontend build directory, if it exists."""
     candidate = (build_dir / request_path).resolve()
@@ -73,6 +79,7 @@ def create_app(
     service_version_reporter: Callable[[str, str], list[ServiceVersion]] = get_service_versions_without_release_date,
     semantic_version_releaser: Callable[[str, bool], str] = release_semantic_version,
     semantic_version_lister: Callable[[str, str], list[str]] = get_semantic_versions,
+    released_version_archiver: Callable[[str, bool], str] = archive_released_versions,
 ) -> FastAPI:
     build_dir = Path(
         frontend_build_dir or os.environ.get("FRONTEND_BUILD_DIR", DEFAULT_FRONTEND_BUILD)
@@ -114,6 +121,19 @@ def create_app(
             raise HTTPException(
                 status_code=503,
                 detail="Unable to retrieve semantic versions",
+            ) from None
+
+    @app.post("/api/archive-released-versions", tags=["archive-released-versions"])
+    async def archive_versions(request: ArchiveRequest) -> SemanticReleaseResponse:
+        try:
+            return SemanticReleaseResponse(
+                log=released_version_archiver(request.project_key, request.is_dry_run)
+            )
+        except Exception:
+            log.exception("Unable to archive released versions")
+            raise HTTPException(
+                status_code=503,
+                detail="Unable to archive released versions",
             ) from None
 
     @app.post("/api/release-semantic-version", tags=["release-semantic-version"])

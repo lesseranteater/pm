@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import VersionSelect from '$lib/VersionSelect.svelte';
-  import { parseLogLines, releaseSemanticVersion } from '$lib/release-semantic-version';
+  import { releaseSemanticVersion } from '$lib/release-semantic-version';
+  import ScriptLog from '$lib/ScriptLog.svelte';
   import { getSemanticVersions } from '$lib/semantic-versions';
 
   let versionName = $state('');
@@ -72,15 +73,7 @@
       <p class="error" role="alert">{error}</p>
     {/if}
     {#if log}
-      <p id="release-log-label" class="log-label">Script Log</p>
-      <pre
-        id="release-log"
-        class="release-log"
-        role="log"
-        aria-labelledby="release-log-label">{#each parseLogLines(log) as line, index (index)}<span
-            class={line.level === 'WARNING' ? 'log-warning' : undefined}
-            >{line.text}
-</span>{/each}</pre>
+      <ScriptLog id="release-log" {log} />
     {/if}
   </section>
 </main>

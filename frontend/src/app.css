@@ -231,6 +231,11 @@ textarea {
   font-weight: 600;
 }
 
+.intro {
+  margin: 0.75rem 0 0;
+  color: #475569;
+}
+
 .log-label {
   margin: 2rem 0 0;
   font-weight: 600;

@@ -21,6 +21,7 @@ def make_client(
     service_version_reporter=lambda project_key, release_version: [],
     semantic_version_releaser=lambda version_name, is_dry_run: "",
     semantic_version_lister=lambda status, project_key: [],
+    released_version_archiver=lambda project_key, is_dry_run: "",
 ) -> TestClient:
     return TestClient(
         create_app(
@@ -28,6 +29,7 @@ def make_client(
             service_version_reporter,
             semantic_version_releaser,
             semantic_version_lister,
+            released_version_archiver,
         )
     )
 
@@ -161,6 +163,42 @@ def test_semantic_versions_report_jira_failure(tmp_path: Path) -> None:
         raise RuntimeError("JIRA_TOKEN environment variable is not configured")
 
     response = make_client(tmp_path, semantic_version_lister=fail).get("/api/semantic-versions")
+
+    assert response.status_code == 503
+
+
+def test_archive_released_versions_returns_the_captured_log(tmp_path: Path) -> None:
+    requests = []
+
+    def archive(project_key: str, is_dry_run: bool) -> str:
+        requests.append((project_key, is_dry_run))
+        return "Dry run: no changes were made."
+
+    response = make_client(tmp_path, released_version_archiver=archive).post(
+        "/api/archive-released-versions",
+        json={"project_key": "IGM", "is_dry_run": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"log": "Dry run: no changes were made."}
+    assert requests == [("IGM", True)]
+
+
+def test_archive_released_versions_rejects_invalid_requests(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+
+    assert client.post("/api/archive-released-versions", json={"project_key": "igm", "is_dry_run": True}).status_code == 422
+    assert client.post("/api/archive-released-versions", json={"project_key": "IGM"}).status_code == 422
+
+
+def test_archive_released_versions_reports_failure(tmp_path: Path) -> None:
+    def fail(project_key: str, is_dry_run: bool) -> str:
+        raise RuntimeError("boom")
+
+    response = make_client(tmp_path, released_version_archiver=fail).post(
+        "/api/archive-released-versions",
+        json={"project_key": "IGM", "is_dry_run": False},
+    )
 
     assert response.status_code == 503
 
