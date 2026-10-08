@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PID_FILE="$ROOT_DIR/.pm-server.pid"
+PID_FILE="$ROOT_DIR/.starter-server.pid"
 
 if [[ ! -f "$PID_FILE" ]]; then
   printf 'Server is not running.\n'

@@ -15,66 +15,46 @@ def make_frontend_build(tmp_path: Path) -> Path:
 
 
 def make_client(tmp_path: Path) -> TestClient:
-    return TestClient(create_app(make_frontend_build(tmp_path), tmp_path / "app.db"))
+    return TestClient(create_app(make_frontend_build(tmp_path)))
 
 
 def test_health_endpoint(tmp_path: Path) -> None:
-    client = make_client(tmp_path)
-
-    response = client.get("/api/health")
+    response = make_client(tmp_path).get("/api/health")
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def test_example_endpoint(tmp_path: Path) -> None:
-    client = make_client(tmp_path)
-
-    response = client.get("/api/example")
+def test_message_endpoint(tmp_path: Path) -> None:
+    response = make_client(tmp_path).get("/api/message")
 
     assert response.status_code == 200
-    assert response.json() == {"message": "Hello from the Project Management MVP backend"}
+    assert response.json() == {"message": "Hello from the Python backend."}
 
 
 def test_frontend_root_serves_index(tmp_path: Path) -> None:
-    client = make_client(tmp_path)
-
-    response = client.get("/")
+    response = make_client(tmp_path).get("/")
 
     assert response.status_code == 200
     assert response.text == "<html>home</html>"
 
 
 def test_frontend_asset_is_served(tmp_path: Path) -> None:
-    client = make_client(tmp_path)
-
-    response = client.get("/_app/app.js")
+    response = make_client(tmp_path).get("/_app/app.js")
 
     assert response.status_code == 200
     assert response.text == "console.log('app')"
 
 
 def test_unknown_frontend_route_uses_fallback(tmp_path: Path) -> None:
-    client = make_client(tmp_path)
-
-    response = client.get("/board")
+    response = make_client(tmp_path).get("/another-page")
 
     assert response.status_code == 200
     assert response.text == "<html>fallback</html>"
 
 
-def test_api_routes_take_priority_over_frontend_fallback(tmp_path: Path) -> None:
-    client = make_client(tmp_path)
-
-    response = client.get("/api/health")
-
-    assert response.text != "<html>fallback</html>"
-
-
 def test_missing_frontend_build_returns_service_unavailable(tmp_path: Path) -> None:
-    client = TestClient(create_app(tmp_path / "missing", tmp_path / "app.db"))
-
-    response = client.get("/")
+    response = TestClient(create_app(tmp_path / "missing")).get("/")
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Frontend build is not available"}

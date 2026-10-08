@@ -21,11 +21,8 @@ ENV FRONTEND_BUILD_DIR=/app/frontend/build
 ENV PYTHONPATH=/app
 
 RUN useradd --create-home --shell /usr/sbin/nologin app \
-  && mkdir -p /app/data \
   && chown -R app:app /app
 
 USER app
 EXPOSE 8000
-VOLUME ["/app/data"]
-
 CMD ["uv", "run", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,196 +1,81 @@
-# Project Management MVP
+# Svelte FastAPI Starter
 
-Local project-management application built with a SvelteKit frontend and a
-FastAPI backend. The frontend is built as static files and served by FastAPI.
-
-## Current Status
-
-The frontend demo, backend persistence foundation, Part 6 API integration, Part
-7 OpenRouter connectivity, Part 8 structured AI board operations, and Part 9
-AI sidebar are complete.
-
-Available now:
-
-- Kanban board with five fixed, renameable columns.
-- Add, edit, delete, and move cards.
-- Static SvelteKit build served by FastAPI.
-- Health and example API endpoints.
-- SQLite schema creation and deterministic seed data.
-- Hardcoded login with server-side SQLite sessions.
-- Authenticated persistent Kanban API for board and card operations.
-- Server-side OpenRouter connectivity check using `openai/gpt-oss-120b`.
-- Transactional structured AI board operations with validation.
-- Responsive AI board assistant with conversation history and retry handling.
-- Docker image and cross-platform start/stop scripts.
-
-The approved MVP roadmap is complete through Part 10. The remaining roadmap
-items are optional future enhancements outside the MVP.
-
-These are planned phases documented in [`docs/PLAN.md`](docs/PLAN.md).
+A minimal local application with a SvelteKit frontend and FastAPI backend. The
+frontend fetches and displays a message from the Python API. The production
+frontend is built as static files and served by FastAPI.
 
 ## Requirements
 
-For local development:
+- Python 3.12 or newer with `uv`
+- Node.js 22 or newer with pnpm 10
+- Docker for the container workflow
 
-- Docker
-- Python 3.12 or newer
-- `uv`
-- Node.js 22 or newer
-- pnpm 10
+## Run Locally
 
-## Start The Complete App
-
-The scripts build the frontend when needed and start FastAPI on port `8000`.
-
-### Linux and macOS
-
-From the repository root:
-
-```bash
-./scripts/start.sh
-```
-
-Open:
-
-```text
-http://127.0.0.1:8000/
-```
-
-Stop the server:
-
-```bash
-./scripts/stop.sh
-```
-
-The scripts store the process ID in `.pm-server.pid` and application output in
-`.pm-server.log`. These files are ignored by Git.
-
-### Windows PowerShell
-
-From the repository root:
-
-```powershell
-.\scripts\start.ps1
-```
-
-Stop the server:
-
-```powershell
-.\scripts\stop.ps1
-```
-
-### Windows Command Prompt
-
-```bat
-scripts\start.bat
-scripts\stop.bat
-```
-
-Set a different local port with the `PORT` environment variable. For example:
-
-```bash
-PORT=8080 ./scripts/start.sh
-```
-
-## Frontend Development
-
-From `frontend/`:
-
-```bash
-pnpm install
-pnpm dev
-```
-
-Open `http://localhost:5173/`. Stop the development server with `Ctrl+C`.
-
-Run frontend checks:
-
-```bash
-pnpm check
-pnpm lint
-pnpm test:unit --run
-pnpm test:e2e
-pnpm build
-```
-
-Install the Playwright browser if needed:
-
-```bash
-pnpm exec playwright install chromium
-```
-
-The production frontend output is generated in `frontend/build/` and is served
-by FastAPI.
-
-## Backend Development
-
-Install or synchronize Python dependencies from the repository root:
+Install dependencies:
 
 ```bash
 uv sync
+pnpm --dir frontend install
 ```
 
-Run FastAPI directly:
+Build the frontend and start the combined application:
 
 ```bash
-uv run uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
+pnpm --dir frontend build
+uv run uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Available endpoints:
+Open `http://127.0.0.1:8000/`. The frontend requests `GET /api/message`, which
+returns the message it displays. `GET /api/health` reports backend health.
 
-- `GET /api/health` returns the backend health status.
-- `GET /api/example` returns a sample API response.
-- `GET /` serves the compiled SvelteKit frontend.
+The cross-platform scripts build the frontend when needed and run the same
+combined application:
 
-Run backend tests:
+```bash
+./scripts/start.sh
+./scripts/stop.sh
+```
+
+On Windows PowerShell, use `./scripts/start.ps1` and `./scripts/stop.ps1`.
+
+## Frontend Development
+
+Run the Svelte development server from `frontend/`:
+
+```bash
+pnpm dev
+```
+
+For this standalone frontend server, requests to `/api/message` require a
+separately running backend or a development proxy. Use the combined server
+workflow above to exercise the complete application.
+
+## Verification
 
 ```bash
 uv run pytest
+pnpm --dir frontend check
+pnpm --dir frontend lint
+pnpm --dir frontend test:unit --run
+pnpm --dir frontend build
 ```
 
 ## Docker
 
-Build the combined image from the repository root:
+Build and run the combined image:
 
 ```bash
-docker build -t project-management-mvp .
+docker build -t svelte-fastapi-starter .
+docker run --rm -p 8000:8000 svelte-fastapi-starter
 ```
 
-Run it:
-
-```bash
-docker run --rm -p 8000:8000 project-management-mvp
-```
-
-Open `http://localhost:8000/`.
-
-The image builds the SvelteKit frontend in a Node build stage, then runs only
-FastAPI in the final Python image. SQLite data persists in the mounted
-`/app/data` volume:
-
-```bash
-docker run --rm -p 8000:8000 \
-  --env-file .env \
-  -v pm_data:/app/data \
-  project-management-mvp
-```
-
-The `.env` file is excluded from the image build context. Pass secrets at
-runtime only. See [`docs/RELEASE.md`](docs/RELEASE.md) for release verification
-and persistence checks.
+Open `http://localhost:8000/`. The image builds the Svelte frontend in a Node
+build stage and runs FastAPI in the final Python image.
 
 ## Project Structure
 
 - `frontend/`: SvelteKit application and frontend tests.
 - `backend/`: FastAPI application and backend tests.
-- `scripts/`: cross-platform local start and stop scripts.
-- `docs/PLAN.md`: authoritative implementation roadmap and approval gates.
+- `scripts/`: cross-platform start and stop scripts.
 - `Dockerfile`: combined frontend build and FastAPI runtime image.
-- `pyproject.toml`: Python dependencies and pytest configuration.
-
-## Development Rules
-
-- Read [`AGENTS.md`](AGENTS.md) before making changes.
-- Read [`frontend/AGENTS.md`](frontend/AGENTS.md) for frontend-specific rules.
-- Keep secrets, local databases, generated output, and dependencies out of Git.
-- Follow the phases and approval gates in `docs/PLAN.md`.

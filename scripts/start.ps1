@@ -1,8 +1,8 @@
 $ErrorActionPreference = 'Stop'
 $RootDir = Split-Path -Parent $PSScriptRoot
-$PidFile = Join-Path $RootDir '.pm-server.pid'
-$LogFile = Join-Path $RootDir '.pm-server.log'
-$ErrorLogFile = Join-Path $RootDir '.pm-server-error.log'
+$PidFile = Join-Path $RootDir '.starter-server.pid'
+$LogFile = Join-Path $RootDir '.starter-server.log'
+$ErrorLogFile = Join-Path $RootDir '.starter-server-error.log'
 $Port = if ($env:PORT) { $env:PORT } else { '8000' }
 
 if (Test-Path $PidFile) {

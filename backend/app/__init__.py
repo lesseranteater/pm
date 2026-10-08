@@ -1,1 +1,1 @@
-"""Application package for the Project Management MVP backend."""
+"""Application package for the Svelte FastAPI starter backend."""

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PID_FILE="$ROOT_DIR/.pm-server.pid"
-LOG_FILE="$ROOT_DIR/.pm-server.log"
+PID_FILE="$ROOT_DIR/.starter-server.pid"
+LOG_FILE="$ROOT_DIR/.starter-server.log"
 
 if [[ -f "$PID_FILE" ]] && kill -0 "$(<"$PID_FILE")" 2>/dev/null; then
   printf 'Server is already running with PID %s\n' "$(<"$PID_FILE")"
