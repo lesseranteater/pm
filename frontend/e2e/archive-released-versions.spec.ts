@@ -38,8 +38,7 @@ test('loads without running and archives only after the button is clicked', asyn
 test('is reachable from the script dropdown', async ({ page }) => {
   await page.goto('/service-versions');
 
-  await page.getByLabel('Script').selectOption('/archive-released-versions');
-  await page.getByRole('button', { name: 'Load', exact: true }).click();
+  await page.getByLabel('Select a Tool').selectOption('/archive-released-versions');
 
   await expect(page).toHaveURL(/\/archive-released-versions$/);
   await expect(page.getByRole('heading', { name: 'Archive Released Versions' })).toBeVisible();

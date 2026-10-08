@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import '../app.css';
@@ -11,14 +12,15 @@
 
   type ScriptRoute = (typeof scripts)[number]['route'];
 
-  let selectedScript = $state<ScriptRoute>(
+  // Follows the URL, so the back and forward buttons keep the dropdown in sync.
+  const selectedScript = $derived<ScriptRoute>(
     scripts.find((script) => script.route === page.url.pathname)?.route ?? '/service-versions'
   );
   let { children } = $props();
 
-  function executeSelectedScript() {
-    const scriptSelector = document.getElementById('script') as HTMLSelectElement;
-    window.location.assign(resolve(scriptSelector.value as ScriptRoute));
+  // Choosing a tool loads it straight away.
+  function loadSelectedScript(event: Event & { currentTarget: HTMLSelectElement }) {
+    void goto(resolve(event.currentTarget.value as ScriptRoute));
   }
 </script>
 
@@ -26,12 +28,12 @@
   <header class="app-header">
     <a class="brand" href={resolve('/service-versions')}>Release Tools</a>
     <div class="script-selector">
-      <select id="script" aria-label="Script" bind:value={selectedScript}>
+      <label for="script">Select a Tool</label>
+      <select id="script" value={selectedScript} onchange={loadSelectedScript}>
         {#each scripts as script (script.route)}
           <option value={script.route}>{script.title}</option>
         {/each}
       </select>
-      <button type="button" onclick={executeSelectedScript}>Load</button>
     </div>
   </header>
   {@render children()}

@@ -6,8 +6,7 @@ test('executes the selected script route', async ({ page }) => {
   );
   await page.goto('/service-versions');
 
-  await page.getByLabel('Script').selectOption('/release-semantic-version');
-  await page.getByRole('button', { name: 'Load', exact: true }).click();
+  await page.getByLabel('Select a Tool').selectOption('/release-semantic-version');
 
   await expect(page).toHaveURL(/\/release-semantic-version$/);
   await expect(page.getByRole('heading', { name: 'Release a Semantic Version' })).toBeVisible();
