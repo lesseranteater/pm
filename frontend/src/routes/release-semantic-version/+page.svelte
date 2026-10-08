@@ -79,8 +79,8 @@
           <strong>Dry Run is off: these changes will be applied in Jira.</strong>
         {/if}
       </p>
-      <button type="submit" disabled={pending || !versionName}
-        >{pending ? 'Releasing...' : 'Release Version'}</button
+      <button type="submit" class:danger={!dryRun} disabled={pending || !versionName}
+        >{pending ? 'Releasing...' : dryRun ? 'Release Version' : 'Release Version (Live)'}</button
       >
     </form>
     {#if error}

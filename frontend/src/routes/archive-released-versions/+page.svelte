@@ -79,8 +79,12 @@
           <strong>Dry Run is off: these versions will be archived in Jira.</strong>
         {/if}
       </p>
-      <button type="submit" disabled={pending || !archiveUntil}
-        >{pending ? 'Archiving...' : 'Archive Versions'}</button
+      <button type="submit" class:danger={!dryRun} disabled={pending || !archiveUntil}
+        >{pending
+          ? 'Archiving...'
+          : dryRun
+            ? 'Archive Versions'
+            : 'Archive Versions (Live)'}</button
       >
     </form>
     {#if error}

@@ -30,6 +30,7 @@ test('submits release parameters and displays the captured log', async ({ page }
   await expect(page.getByRole('note')).toContainText('Dry Run is on');
   await page.getByRole('radio', { name: 'No' }).check();
   await expect(page.getByRole('note')).toContainText('Dry Run is off');
+  await expect(page.getByRole('button', { name: 'Release Version (Live)' })).toBeVisible();
   await page.getByRole('radio', { name: 'Yes' }).check();
   await page.getByRole('button', { name: 'Release Version' }).click();
 

@@ -26,6 +26,7 @@ test('loads without running and archives only after the button is clicked', asyn
   await expect(page.getByRole('note')).toContainText('Dry Run is on');
   await page.getByRole('radio', { name: 'No' }).check();
   await expect(page.getByRole('note')).toContainText('Dry Run is off');
+  await expect(page.getByRole('button', { name: 'Archive Versions (Live)' })).toBeVisible();
   await page.getByRole('radio', { name: 'Yes' }).check();
 
   await page.getByRole('button', { name: 'Archive Versions' }).click();
