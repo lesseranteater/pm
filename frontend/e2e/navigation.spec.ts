@@ -4,11 +4,11 @@ test('executes the selected script route', async ({ page }) => {
   await page.route('**/api/service-versions', (route) =>
     route.fulfill({ contentType: 'application/json', body: '[]' })
   );
-  await page.goto('/service-versions');
+  await page.goto('/list-service-versions-without-a-release-date');
 
-  await page.getByLabel('Select a Tool').selectOption('/release-semantic-version');
+  await page.getByLabel('Select a Tool').selectOption('/release-a-semantic-version');
 
-  await expect(page).toHaveURL(/\/release-semantic-version$/);
+  await expect(page).toHaveURL(/\/release-a-semantic-version$/);
   await expect(page.getByRole('heading', { name: 'Release a Semantic Version' })).toBeVisible();
   await expect(page.getByLabel('Unreleased Deployment Version')).toBeVisible();
 });

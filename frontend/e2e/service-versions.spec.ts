@@ -25,7 +25,7 @@ test('displays the service versions returned by the API', async ({ page }) => {
     });
   });
 
-  await page.goto('/service-versions');
+  await page.goto('/list-service-versions-without-a-release-date');
 
   await expect(
     page.getByRole('heading', { name: 'List Service Versions Without a Release Date' })
@@ -81,7 +81,7 @@ test('filters the deployment versions with a fuzzy search as the user types', as
       ])
     })
   );
-  await page.goto('/service-versions');
+  await page.goto('/list-service-versions-without-a-release-date');
 
   const deployment = page.getByRole('combobox', { name: 'Deployment Version' });
   await deployment.click();

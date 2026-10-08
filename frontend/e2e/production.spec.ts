@@ -6,7 +6,7 @@ test.skip(
 );
 
 test('displays service versions from FastAPI', async ({ page }) => {
-  await page.goto('/service-versions');
+  await page.goto('/list-service-versions-without-a-release-date');
 
   await expect(
     page.getByRole('heading', { name: 'List Service Versions Without a Release Date' })

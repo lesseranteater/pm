@@ -1,13 +1,13 @@
 export const tools = [
   {
-    route: '/service-versions',
+    route: '/list-service-versions-without-a-release-date',
     title: 'List Service Versions Without a Release Date',
     summary:
       'Finds the service versions that still have no release date, for the issues assigned to a deployment version you choose.',
     access: 'Read only'
   },
   {
-    route: '/release-semantic-version',
+    route: '/release-a-semantic-version',
     title: 'Release a Semantic Version',
     summary:
       'Releases an unreleased deployment version in Jira, updates the Release State of its issues, comments on blocked parents and publishes the ones that are ready.',

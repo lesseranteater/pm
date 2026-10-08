@@ -16,8 +16,8 @@ test('a tool card opens its tool and the logo returns home', async ({ page }) =>
   await page.goto('/');
 
   await page.getByRole('link', { name: /Release a Semantic Version/ }).click();
-  await expect(page).toHaveURL(/\/release-semantic-version$/);
-  await expect(page.getByLabel('Select a Tool')).toHaveValue('/release-semantic-version');
+  await expect(page).toHaveURL(/\/release-a-semantic-version$/);
+  await expect(page.getByLabel('Select a Tool')).toHaveValue('/release-a-semantic-version');
 
   await page.getByRole('link', { name: 'Release Tools' }).first().click();
   await expect(page).toHaveURL(/\/$/);

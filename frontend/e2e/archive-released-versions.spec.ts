@@ -37,7 +37,7 @@ test('loads without running and archives only after the button is clicked', asyn
 });
 
 test('is reachable from the script dropdown', async ({ page }) => {
-  await page.goto('/service-versions');
+  await page.goto('/list-service-versions-without-a-release-date');
 
   await page.getByLabel('Select a Tool').selectOption('/archive-released-versions');
 
