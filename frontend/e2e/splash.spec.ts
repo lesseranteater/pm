@@ -9,7 +9,7 @@ test('the home page explains the app and links to every tool', async ({ page }) 
   await expect(page.getByText('One place to run the Jira release scripts')).toBeVisible();
   await expect(page.getByLabel('Select a Tool')).toHaveValue('');
 
-  await expect(page.locator('.tool-card')).toHaveCount(3);
+  await expect(page.locator('.tool-card')).toHaveCount(4);
   await expect(page.getByRole('link', { name: /Archive Released Versions/ })).toBeVisible();
   await expect(page.getByText('Safe By Default')).toBeVisible();
 });

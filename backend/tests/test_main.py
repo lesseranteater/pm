@@ -24,6 +24,7 @@ def make_client(
     released_version_archiver=lambda project_key, is_dry_run, archive_until: "",
     released_version_previewer=lambda project_key, archive_until: {"count": 0, "semantic": 0, "service": 0},
     jira_configured=lambda: True,
+    release_checker=lambda deployment_plan_key: "",
 ) -> TestClient:
     return TestClient(
         create_app(
@@ -34,6 +35,7 @@ def make_client(
             released_version_archiver,
             released_version_previewer,
             jira_configured,
+            release_checker,
         )
     )
 
@@ -220,6 +222,30 @@ def test_archive_released_versions_reports_failure(tmp_path: Path) -> None:
     )
 
     assert response.status_code == 503
+
+
+def test_release_check_returns_the_script_log(tmp_path: Path) -> None:
+    requests = []
+
+    def check(deployment_plan_key: str) -> str:
+        requests.append(deployment_plan_key)
+        return "CHECK COMPLETE"
+
+    response = make_client(tmp_path, release_checker=check).post(
+        "/api/release-check", json={"deployment_plan_key": "IGM-123"}
+    )
+
+    assert response.status_code == 200
+    assert response.text == "CHECK COMPLETE"
+    assert requests == ["IGM-123"]
+
+
+def test_release_check_rejects_invalid_deployment_plan_key(tmp_path: Path) -> None:
+    response = make_client(tmp_path).post(
+        "/api/release-check", json={"deployment_plan_key": "not-a-key"}
+    )
+
+    assert response.status_code == 422
 
 
 def test_frontend_root_serves_index(tmp_path: Path) -> None:

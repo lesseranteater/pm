@@ -19,6 +19,13 @@ export const tools = [
     summary:
       'Archives every released version up to a date you pick, listing Semantic versions first and Service versions after.',
     access: 'Changes Jira'
+  },
+  {
+    route: '/release-check',
+    title: 'Release Check',
+    summary:
+      'Checks linked issues, parents and sub-tasks for Fix Version mismatches against a Deployment Plan.',
+    access: 'Read only'
   }
 ] as const;
 

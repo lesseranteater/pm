@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, field_validator
 from .archive_released_versions import preview_archive, stream_archive_released_versions
 from .errors import ProjectNotFoundError, explain_exception
 from .main_paths import PROJECT_ROOT
+from .release_check import stream_release_check
 from .release_semantic_version import (
     get_semantic_versions,
     jira_token_configured,
@@ -70,6 +71,10 @@ class ArchiveRequest(BaseModel):
         return value
 
 
+class ReleaseCheckRequest(BaseModel):
+    deployment_plan_key: str = Field(pattern=r"^[A-Z][A-Z0-9_]{1,9}-\d+$")
+
+
 def _log_response(result: ScriptLog) -> StreamingResponse:
     """Stream a script log as plain text, one chunk per log line."""
     chunks = [result] if isinstance(result, str) else result
@@ -98,6 +103,7 @@ def create_app(
     released_version_archiver: Callable[[str, bool, date], ScriptLog] = stream_archive_released_versions,
     released_version_previewer: Callable[[str, date], dict[str, int]] = preview_archive,
     jira_configured: Callable[[], bool] = jira_token_configured,
+    release_checker: Callable[[str], ScriptLog] = stream_release_check,
 ) -> FastAPI:
     build_dir = Path(
         frontend_build_dir or os.environ.get("FRONTEND_BUILD_DIR", DEFAULT_FRONTEND_BUILD)
@@ -182,6 +188,14 @@ def create_app(
                 status_code=503,
                 detail="Unable to release semantic version",
             ) from None
+
+    @app.post("/api/release-check", tags=["release-check"])
+    async def release_check(request: ReleaseCheckRequest) -> StreamingResponse:
+        try:
+            return _log_response(release_checker(request.deployment_plan_key))
+        except Exception:
+            log.exception("Unable to run release check")
+            raise HTTPException(status_code=503, detail="Unable to run release check") from None
 
     @app.get("/{request_path:path}", include_in_schema=False)
     async def frontend(request_path: str):

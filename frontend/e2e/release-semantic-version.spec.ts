@@ -114,10 +114,10 @@ test('filters the deployment versions with a fuzzy search as the user types', as
 
   const deployment = page.getByRole('combobox', { name: 'Unreleased Deployment Version' });
   await deployment.click();
-  await expect(page.getByRole('option')).toHaveCount(3);
+  await expect(page.getByRole('listbox').getByRole('option')).toHaveCount(3);
 
   await page.keyboard.type('hfps');
-  await expect(page.getByRole('option')).toHaveCount(1);
+  await expect(page.getByRole('listbox').getByRole('option')).toHaveCount(1);
 
   await page.keyboard.press('Enter');
   await expect(deployment).toHaveValue('Hotfix.ps-dev-1.26.4.2');

@@ -41,14 +41,14 @@ test('displays the service versions returned by the API', async ({ page }) => {
   await expect(page.getByRole('combobox', { name: 'Deployment Version' })).toHaveValue(
     'Deploy.fe-dev.26.2.1'
   );
-  await page.getByRole('radio', { name: 'Released' }).check();
+  await page.getByRole('radio', { name: 'Released', exact: true }).check();
   await expect(page.getByRole('combobox', { name: 'Deployment Version' })).toHaveValue(
     'Deploy.fe-dev.26.3.6'
   );
 
   const deployment = page.getByRole('combobox', { name: 'Deployment Version' });
   await deployment.click();
-  await expect(page.getByRole('option')).toHaveCount(1);
+  await expect(page.getByRole('listbox').getByRole('option')).toHaveCount(1);
   await deployment.fill('zzz');
   await expect(page.getByText('No matching versions').first()).toBeVisible();
   await page.keyboard.press('Escape');
@@ -83,10 +83,10 @@ test('filters the deployment versions with a fuzzy search as the user types', as
 
   const deployment = page.getByRole('combobox', { name: 'Deployment Version' });
   await deployment.click();
-  await expect(page.getByRole('option')).toHaveCount(4);
+  await expect(page.getByRole('listbox').getByRole('option')).toHaveCount(4);
 
   await page.keyboard.type('dpfe');
-  await expect(page.getByRole('option')).toHaveCount(2);
+  await expect(page.getByRole('listbox').getByRole('option')).toHaveCount(2);
 
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
