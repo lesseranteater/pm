@@ -1,0 +1,126 @@
+== log ==
+INFO | DRY RUN enabled: Jira updates will not be executed.
+INFO | Version='Deploy.fe-dev.26.3.6', ID=10, released=False
+INFO | Version 'Deploy.fe-dev.26.3.6' is assigned to 8 issue(s).
+INFO | Issue carrying version: A | type='Story'
+INFO | Issue carrying version: B | type='Story'
+INFO | Issue carrying version: C | type='Bug'
+INFO | Issue carrying version: D | type='Config Change'
+INFO | Issue carrying version: F | type='Story'
+INFO | Issue carrying version: G | type='Story'
+INFO | Issue carrying version: H | type='Bug'
+INFO | Issue carrying version: PLAN | type='Deployment Plan'
+INFO | Supported parent issues=7 -> ['A', 'B', 'C', 'D', 'F', 'G', 'H']
+WARNING | Deployment plan(s) for semantic version 'Deploy.fe-dev.26.3.6' must be updated manually to a terminal status; continuing with release.
+WARNING | Deployment Plan PLAN has non-terminal status 'Planned'.
+INFO | DRY RUN: would release version 'Deploy.fe-dev.26.3.6'.
+INFO | ======================================================================
+INFO | Evaluating A [Story]
+INFO | A: total subtasks=1
+INFO | A / A-1: type='Sub-task', status='Done', versions=[('Deploy.fe-dev.26.3.6', '10', False, True), ('svc-released', '20', True, False)]
+INFO | A: active releasable subtasks=['A-1 (Sub-task, Done)']
+INFO | A / A-1: semanticVersions=[('Deploy.fe-dev.26.3.6', '10', False)]
+INFO | A / A-1: RELEASED (1/1)
+INFO | A: released subtasks=1/1 -> Release State='Fully Released'
+INFO | A: Release State current='[EMPTY]', target='Fully Released'
+INFO | A: updating Release State -> Fully Released
+INFO | A: DRY RUN: would update Release State -> Fully Released
+INFO | A: DRY RUN: would transition to Published.
+INFO | ======================================================================
+INFO | Evaluating B [Story]
+INFO | B: total subtasks=2
+INFO | B / B-1: type='Sub-task', status='Done', versions=[('Deploy.fe-dev.26.3.6', '10', False, True), ('svc-released', '20', True, False)]
+INFO | B / B-2: type='Sub-task', status='In Progress', versions=[]
+INFO | B: active releasable subtasks=['B-1 (Sub-task, Done)', 'B-2 (Sub-task, In Progress)']
+INFO | B / B-1: semanticVersions=[('Deploy.fe-dev.26.3.6', '10', False)]
+INFO | B / B-1: RELEASED (1/2)
+INFO | B / B-2: NOT RELEASED - status is 'In Progress', not Done.
+INFO | B: released subtasks=1/2 -> Release State='Partially Released'
+WARNING | B: DRY RUN: would add comment: Release State changed to Partially Released because: B-2 is in status 'In Progress'
+INFO | B: Release State current='[EMPTY]', target='Partially Released'
+INFO | B: updating Release State -> Partially Released
+INFO | B: DRY RUN: would update Release State -> Partially Released
+INFO | ======================================================================
+INFO | Evaluating C [Bug]
+INFO | C: total subtasks=0
+INFO | C: active releasable subtasks=[]
+INFO | C: no active releasable Sub-task/Sub-bug.
+INFO | C: Release State current='[EMPTY]', target='Fully Released'
+INFO | C: updating Release State -> Fully Released
+INFO | C: DRY RUN: would update Release State -> Fully Released
+INFO | C: DRY RUN: would transition to Published.
+INFO | ======================================================================
+INFO | Evaluating D [Config Change]
+INFO | D: total subtasks=1
+INFO | D / D-1: type='Sub-task', status='Done', versions=[('Deploy.fe-dev.26.3.6', '10', False, True)]
+INFO | D: active releasable subtasks=['D-1 (Sub-task, Done)']
+INFO | D / D-1: semanticVersions=[('Deploy.fe-dev.26.3.6', '10', False)]
+INFO | D / D-1: RELEASED (1/1)
+INFO | D: released subtasks=1/1 -> Release State='Fully Released'
+INFO | D: Release State current='[EMPTY]', target='Fully Released'
+INFO | D: updating Release State -> Fully Released
+INFO | D: DRY RUN: would update Release State -> Fully Released
+INFO | D: DRY RUN: would transition to Published.
+INFO | ======================================================================
+INFO | Evaluating F [Story]
+INFO | F: total subtasks=3
+INFO | F / F-1: type='Sub-task', status='Done', versions=[('Deploy.fe-dev.26.3.6', '10', False, True), ('svc-released', '20', True, False)]
+INFO | F / F-2: type='Sub-task', status='Rejected', versions=[]
+INFO | F / F-3: type='Task', status='To Do', versions=[]
+INFO | F: active releasable subtasks=['F-1 (Sub-task, Done)']
+INFO | F: excluded Rejected/Canceled subtasks=['F-2 (Rejected)']
+INFO | F / F-1: semanticVersions=[('Deploy.fe-dev.26.3.6', '10', False)]
+INFO | F / F-1: RELEASED (1/1)
+INFO | F: released subtasks=1/1 -> Release State='Partially Released'
+WARNING | F: DRY RUN: would add comment: Release State changed to Partially Released because: F-3 (Task) is in status 'To Do'
+INFO | F: Release State current='[EMPTY]', target='Partially Released'
+INFO | F: updating Release State -> Partially Released
+INFO | F: DRY RUN: would update Release State -> Partially Released
+INFO | ======================================================================
+INFO | Evaluating G [Story]
+INFO | G: total subtasks=1
+INFO | G / G-1: type='Sub-task', status='To Do', versions=[]
+INFO | G: active releasable subtasks=['G-1 (Sub-task, To Do)']
+INFO | G / G-1: NOT RELEASED - status is 'To Do', not Done.
+INFO | G: released subtasks=0/1 -> Release State='Not Released'
+WARNING | G: DRY RUN: would add comment: Release State changed to Not Released because: G-1 is in status 'To Do'
+INFO | G: Release State current='[EMPTY]', target='Not Released'
+INFO | G: updating Release State -> Not Released
+INFO | G: DRY RUN: would update Release State -> Not Released
+INFO | ======================================================================
+INFO | Evaluating H [Bug]
+INFO | H: total subtasks=0
+INFO | H: active releasable subtasks=[]
+INFO | H: no active releasable Sub-task/Sub-bug.
+WARNING | H: DRY RUN: would add comment: Release State changed to Not Released because: there are no active releasable Sub-task/Sub-bug issues
+INFO | H: Release State current='[EMPTY]', target='Not Released'
+INFO | H: updating Release State -> Not Released
+INFO | H: DRY RUN: would update Release State -> Not Released
+INFO | ======================================================================
+INFO | Processing finished for released version 'Deploy.fe-dev.26.3.6'.
+== writes ==
+== reads ==
+search project = IGM AND fixVersion = "Deploy.fe-dev.26.3.6"
+issue A-1
+issue B-1
+issue B-2
+issue D-1
+issue F-1
+issue F-2
+issue F-3
+issue G-1
+issue A
+issue A-1
+issue B
+issue B-1
+issue B-2
+issue C
+issue D
+issue D-1
+issue F
+issue F-1
+issue F-2
+issue F-3
+issue G
+issue G-1
+issue H

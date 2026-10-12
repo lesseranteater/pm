@@ -9,6 +9,25 @@ from jira.resources import Issue, Version
 from .errors import ProjectNotFoundError, UserFacingError, explain_exception
 from .jira_credentials import create_jira_client
 from .script_runner import stream_script_log
+from .release_comments import build_release_state_comment
+from .release_rules import (
+    DONE_STATUS,
+    NON_RELEASABLE_SUBTASK_STATUSES,
+    PROJECT_KEY,
+    RELEASE_STATE_FIELD,
+    STATE_FULLY_RELEASED,
+    STATE_NOT_RELEASED,
+    STATE_PARTIALLY_RELEASED,
+    find_deployment_plan_status_blockers,
+    find_parent_status_blockers,
+    get_release_state,
+    is_parent_ready_for_full_release,
+    is_parent_semantic_version,
+    is_semantic_version,
+    meets_full_release_prerequisites,
+    unreleased_service_versions,
+    version_status,
+)
 from .jira_rules import (
     PARENT_ISSUE_TYPES,
     RELEASABLE_SUBTASK_TYPES,
@@ -20,49 +39,6 @@ from .jira_rules import (
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-
-PROJECT_KEY = "IGM"
-
-RELEASE_STATE_FIELD_ID = 14889
-RELEASE_STATE_FIELD = f"customfield_{RELEASE_STATE_FIELD_ID}"
-
-DONE_STATUS = "Done"
-
-# Rejected / Canceled Sub-tasks and Sub-bugs are ignored completely.
-NON_RELEASABLE_SUBTASK_STATUSES = {
-    "Rejected",
-    "Canceled",
-}
-NON_RELEASABLE_SUBTASK_TERMINAL_STATUSES = {
-    DONE_STATUS,
-    *NON_RELEASABLE_SUBTASK_STATUSES,
-}
-
-STATE_NOT_RELEASED = "Not Released"
-STATE_PARTIALLY_RELEASED = "Partially Released"
-STATE_FULLY_RELEASED = "Fully Released"
-
-FULLY_RELEASED_PARENT_STATUSES = {
-    "Story": "Accepted",
-    "Enabler": "Accepted",
-    "Bug": "Done",
-    "Config Change": "Accepted",
-}
-
-SEMANTIC_RELEASE_ALLOWED_PARENT_STATUSES = {
-    *FULLY_RELEASED_PARENT_STATUSES.values(),
-    "Published",
-}
-
-DEPLOYMENT_PLAN_ISSUE_TYPE = "Deployment Plan"
-TERMINAL_DEPLOYMENT_PLAN_STATUSES = {
-    "Deployed on Prod",
-    "Rolled Back",
-    "Canceled/Not Happened",
-    "Rejected",
-}
-TERMINAL_DEPLOYMENT_PLAN_STATUS_NAMES = {status.casefold() for status in TERMINAL_DEPLOYMENT_PLAN_STATUSES}
-
 
 # ============================================================================
 # SEMANTIC VERSION CLASSIFICATION
@@ -91,26 +67,6 @@ release_lock = Lock()
 # ============================================================================
 
 
-def is_semantic_version(version: Version) -> bool:
-    """
-    Return True when the Jira version matches our semantic release naming
-    convention.
-    """
-
-    name = getattr(version, "name", None)
-
-    if not name:
-        return False
-
-    return is_semantic_release_version(name)
-
-
-def is_parent_semantic_version(version: Version) -> bool:
-    """Return whether a parent Fix Version can define a semantic release target."""
-
-    return is_semantic_version(version) or getattr(version, "name", "").casefold() == "unknown"
-
-
 def find_project_version(
     jira: JIRA,
     project_key: str,
@@ -131,14 +87,6 @@ def find_project_version(
         raise UserFacingError(f"More than one version named '{version_name}' was found " f"in project '{project_key}'.")
 
     return matching_versions[0]
-
-
-def version_status(version: Version) -> str:
-    """Classify a Jira version as archived, released, or unreleased (archived wins)."""
-
-    if bool(getattr(version, "archived", False)):
-        return "archived"
-    return "released" if bool(getattr(version, "released", False)) else "unreleased"
 
 
 def list_semantic_versions(jira: JIRA, project_key: str, status: str) -> list[str]:
@@ -192,27 +140,6 @@ def search_all_issues(
             break
 
     return results
-
-
-def get_release_state(issue: Issue) -> str | None:
-    """
-    Return the current value of the Release State custom field.
-    """
-
-    value = getattr(
-        issue.fields,
-        RELEASE_STATE_FIELD,
-        None,
-    )
-
-    if value is None:
-        return None
-
-    # Select-list fields normally come back as an object with .value.
-    if hasattr(value, "value"):
-        return value.value
-
-    return str(value)
 
 
 def set_release_state(
@@ -271,59 +198,6 @@ def set_release_state(
         "%s: Release State after update='%s'",
         issue.key,
         new_state or "[EMPTY]",
-    )
-
-
-def is_parent_ready_for_full_release(parent_issue: Issue) -> bool:
-    """Return whether the parent has the required status for Fully Released."""
-
-    return parent_issue.fields.status.name in {
-        FULLY_RELEASED_PARENT_STATUSES.get(parent_issue.fields.issuetype.name),
-        "Published",
-    }
-
-
-def unreleased_service_versions(issue: Issue) -> list[str]:
-    """Return unreleased non-semantic Fix Versions assigned to an issue."""
-
-    return [
-        version.name
-        for version in issue.fields.fixVersions or []
-        if not is_semantic_version(version) and not bool(getattr(version, "released", False))
-    ]
-
-
-def has_released_service_version(issue: Issue) -> bool:
-    """Return whether an issue has at least one released service Fix Version."""
-
-    return any(
-        not is_semantic_version(version) and bool(getattr(version, "released", False))
-        for version in issue.fields.fixVersions or []
-    )
-
-
-def meets_full_release_prerequisites(parent_issue: Issue, all_subtasks: list[Issue]) -> bool:
-    """Return whether every child satisfies the Done and service-version requirements."""
-
-    releasable_subtasks = [
-        subtask
-        for subtask in all_subtasks
-        if subtask.fields.issuetype.name in RELEASABLE_SUBTASK_TYPES
-        and subtask.fields.status.name not in NON_RELEASABLE_SUBTASK_STATUSES
-    ]
-    non_releasable_subtasks = [
-        subtask for subtask in all_subtasks if subtask.fields.issuetype.name not in RELEASABLE_SUBTASK_TYPES
-    ]
-
-    service_version_is_optional = parent_issue.fields.issuetype.name == "Config Change"
-
-    return all(
-        subtask.fields.status.name == DONE_STATUS
-        and not unreleased_service_versions(subtask)
-        and (service_version_is_optional or has_released_service_version(subtask))
-        for subtask in releasable_subtasks
-    ) and all(
-        subtask.fields.status.name in NON_RELEASABLE_SUBTASK_TERMINAL_STATUSES for subtask in non_releasable_subtasks
     )
 
 
@@ -475,34 +349,9 @@ def find_not_done_target_version_blockers(
     return blockers
 
 
-def find_parent_status_blockers(parent_issues: list[Issue]) -> list[tuple[str, str, str, str]]:
-    """Return parents whose current status does not permit semantic version release."""
-
-    blockers: list[tuple[str, str, str, str]] = []
-
-    for parent_issue in parent_issues:
-        required_status = FULLY_RELEASED_PARENT_STATUSES[parent_issue.fields.issuetype.name]
-        current_status = parent_issue.fields.status.name
-
-        if current_status not in SEMANTIC_RELEASE_ALLOWED_PARENT_STATUSES:
-            blockers.append((parent_issue.key, parent_issue.fields.issuetype.name, current_status, required_status))
-
-    return blockers
-
-
-def find_deployment_plan_status_blockers(issues: list[Issue]) -> list[tuple[str, str]]:
-    """Return target-version deployment plans that have not reached a terminal status."""
-
-    return [
-        (issue.key, issue.fields.status.name)
-        for issue in issues
-        if issue.fields.issuetype.name == DEPLOYMENT_PLAN_ISSUE_TYPE
-        and issue.fields.status.name.casefold() not in TERMINAL_DEPLOYMENT_PLAN_STATUS_NAMES
-    ]
-
-
-def add_partial_release_comment(
+def add_release_state_comment(
     jira: JIRA,
+    state: str,
     parent_issue: Issue,
     all_subtasks: list[Issue],
     releasable_subtasks: list[Issue],
@@ -510,107 +359,11 @@ def add_partial_release_comment(
     dry_run_released_version_id: str | None,
     is_dry_run: bool,
 ) -> None:
-    """Explain why the calculated Release State is Partially Released."""
+    """Explain on the parent why its Release State is Partially Released or Not Released."""
 
-    reasons: list[str] = []
-    service_version_is_optional = parent_issue.fields.issuetype.name == "Config Change"
-
-    for subtask in releasable_subtasks:
-        if subtask.fields.status.name != DONE_STATUS:
-            reasons.append(f"{subtask.key} is in status '{subtask.fields.status.name}'")
-            continue
-
-        semantic_versions = [version for version in subtask.fields.fixVersions or [] if is_semantic_version(version)]
-        unreleased_service_version_names = unreleased_service_versions(subtask)
-        unreleased_semantic_versions = [
-            version.name
-            for version in semantic_versions
-            if not bool(getattr(version, "released", False)) and str(version.id) != dry_run_released_version_id
-        ]
-
-        if not semantic_versions and not is_whole_story_release:
-            reasons.append(f"{subtask.key} has no semantic Fix Version")
-        if unreleased_service_version_names:
-            reasons.append(
-                f"{subtask.key} has unreleased service Fix Version(s): "
-                f"{', '.join(unreleased_service_version_names)}"
-            )
-        if unreleased_semantic_versions:
-            reasons.append(
-                f"{subtask.key} has unreleased semantic Fix Version(s): {', '.join(unreleased_semantic_versions)}"
-            )
-        if not service_version_is_optional and not has_released_service_version(subtask):
-            reasons.append(f"{subtask.key} has no released service Fix Version")
-
-    for subtask in all_subtasks:
-        if (
-            subtask.fields.issuetype.name not in RELEASABLE_SUBTASK_TYPES
-            and subtask.fields.status.name not in NON_RELEASABLE_SUBTASK_TERMINAL_STATUSES
-        ):
-            reasons.append(
-                f"{subtask.key} ({subtask.fields.issuetype.name}) is in status '{subtask.fields.status.name}'"
-            )
-
-    comment = "Release State changed to Partially Released because: " + "; ".join(reasons)
-
-    if is_dry_run:
-        log.warning("%s: DRY RUN: would add comment: %s", parent_issue.key, comment)
-        return
-
-    jira.add_comment(parent_issue.key, comment)
-
-
-def add_not_released_comment(
-    jira: JIRA,
-    parent_issue: Issue,
-    all_subtasks: list[Issue],
-    releasable_subtasks: list[Issue],
-    is_whole_story_release: bool,
-    dry_run_released_version_id: str | None,
-    is_dry_run: bool,
-) -> None:
-    """Explain why the calculated Release State is Not Released."""
-
-    reasons: list[str] = []
-
-    if not releasable_subtasks:
-        reasons.append("there are no active releasable Sub-task/Sub-bug issues")
-
-    for subtask in releasable_subtasks:
-        if subtask.fields.status.name != DONE_STATUS:
-            reasons.append(f"{subtask.key} is in status '{subtask.fields.status.name}'")
-            continue
-
-        semantic_versions = [version for version in subtask.fields.fixVersions or [] if is_semantic_version(version)]
-        unreleased_service_version_names = unreleased_service_versions(subtask)
-        unreleased_semantic_versions = [
-            version.name
-            for version in semantic_versions
-            if not bool(getattr(version, "released", False)) and str(version.id) != dry_run_released_version_id
-        ]
-
-        if not semantic_versions and not is_whole_story_release:
-            reasons.append(f"{subtask.key} has no semantic Fix Version")
-        if unreleased_service_version_names:
-            reasons.append(
-                f"{subtask.key} has unreleased service Fix Version(s): "
-                f"{', '.join(unreleased_service_version_names)}"
-            )
-        if unreleased_semantic_versions:
-            reasons.append(
-                f"{subtask.key} has unreleased semantic Fix Version(s): {', '.join(unreleased_semantic_versions)}"
-            )
-
-    for subtask in all_subtasks:
-        if (
-            subtask.fields.issuetype.name not in RELEASABLE_SUBTASK_TYPES
-            and subtask.fields.status.name not in NON_RELEASABLE_SUBTASK_TERMINAL_STATUSES
-        ):
-            reasons.append(
-                f"{subtask.key} ({subtask.fields.issuetype.name}) is in status '{subtask.fields.status.name}'"
-            )
-
-    comment = "Release State changed to Not Released because: " + "; ".join(reasons)
+    comment = build_release_state_comment(
+        state, parent_issue, all_subtasks, releasable_subtasks, is_whole_story_release, dry_run_released_version_id
+    )
 
     if is_dry_run:
         log.warning("%s: DRY RUN: would add comment: %s", parent_issue.key, comment)
@@ -728,8 +481,9 @@ def evaluate_parent(
             )
         else:
             if get_release_state(parent_issue) != STATE_NOT_RELEASED:
-                add_not_released_comment(
+                add_release_state_comment(
                     jira,
+                    STATE_NOT_RELEASED,
                     parent_issue,
                     all_subtasks,
                     releasable_subtasks,
@@ -899,8 +653,9 @@ def evaluate_parent(
             return
 
     if target_state == STATE_PARTIALLY_RELEASED and get_release_state(parent_issue) != target_state:
-        add_partial_release_comment(
+        add_release_state_comment(
             jira,
+            STATE_PARTIALLY_RELEASED,
             parent_issue,
             all_subtasks,
             releasable_subtasks,
@@ -910,8 +665,9 @@ def evaluate_parent(
         )
 
     if target_state == STATE_NOT_RELEASED and get_release_state(parent_issue) != target_state:
-        add_not_released_comment(
+        add_release_state_comment(
             jira,
+            STATE_NOT_RELEASED,
             parent_issue,
             all_subtasks,
             releasable_subtasks,

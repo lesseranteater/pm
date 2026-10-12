@@ -1,0 +1,20 @@
+== log ==
+INFO | Version='Deploy.fe-dev.26.3.6', ID=10, released=False
+INFO | Version 'Deploy.fe-dev.26.3.6' is assigned to 9 issue(s).
+INFO | Issue carrying version: A | type='Story'
+INFO | Issue carrying version: B | type='Story'
+INFO | Issue carrying version: C | type='Bug'
+INFO | Issue carrying version: D | type='Config Change'
+INFO | Issue carrying version: F | type='Story'
+INFO | Issue carrying version: G | type='Story'
+INFO | Issue carrying version: H | type='Bug'
+INFO | Issue carrying version: PLAN | type='Deployment Plan'
+INFO | Issue carrying version: X | type='Story'
+INFO | Supported parent issues=8 -> ['A', 'B', 'C', 'D', 'F', 'G', 'H', 'X']
+WARNING | Deployment plan(s) for semantic version 'Deploy.fe-dev.26.3.6' must be updated manually to a terminal status; continuing with release.
+WARNING | Deployment Plan PLAN has non-terminal status 'Planned'.
+ERROR | Cannot release semantic version 'Deploy.fe-dev.26.3.6': assigned story-level issues are not at their required status.
+ERROR | Parent X (Story) has status 'In Progress'; required status is 'Accepted'.
+== writes ==
+== reads ==
+search project = IGM AND fixVersion = "Deploy.fe-dev.26.3.6"

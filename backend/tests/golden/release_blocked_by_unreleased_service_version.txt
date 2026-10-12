@@ -1,0 +1,13 @@
+== log ==
+INFO | Version='Deploy.fe-dev.26.3.6', ID=10, released=False
+INFO | Version 'Deploy.fe-dev.26.3.6' is assigned to 2 issue(s).
+INFO | Issue carrying version: E | type='Story'
+INFO | Issue carrying version: A | type='Story'
+INFO | Supported parent issues=2 -> ['E', 'A']
+ERROR | Cannot release semantic version 'Deploy.fe-dev.26.3.6': unreleased service versions exist on assigned sub-tasks.
+ERROR | Parent E, sub-task E-1: unreleased non-semantic service version(s): ['svc-open'].
+== writes ==
+== reads ==
+search project = IGM AND fixVersion = "Deploy.fe-dev.26.3.6"
+issue E-1
+issue A-1

@@ -110,8 +110,8 @@ def test_partial_release_comment_does_not_require_a_service_version_for_config_c
     for issue_type, expect_service_reason in (("Config Change", False), ("Story", True)):
         comments.clear()
         parent = SimpleNamespace(key="IGM-1", fields=SimpleNamespace(issuetype=SimpleNamespace(name=issue_type)))
-        release_semantic_version.add_partial_release_comment(
-            jira, parent, [done, open_], [done, open_], False, None, False
+        release_semantic_version.add_release_state_comment(
+            jira, "Partially Released", parent, [done, open_], [done, open_], False, None, False
         )
         assert "IGM-3 is in status 'In Progress'" in comments[0]
         assert ("IGM-2 has no released service Fix Version" in comments[0]) is expect_service_reason
