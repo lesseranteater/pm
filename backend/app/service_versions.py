@@ -1,24 +1,19 @@
 import logging
-import re
 from threading import Lock
 from typing import Iterator
 
 from jira import JIRA
 
 from .errors import UserFacingError
+from .jira_rules import (
+    PARENT_ISSUE_TYPES,
+    RELEASABLE_SUBTASK_TYPES,
+    is_semantic_release_version,
+    jql_project,
+    jql_quote,
+)
 from .script_runner import stream_script_log
 from .jira_credentials import create_jira_client as _jira_client
-
-RELEASABLE_SUBTASK_TYPES = {"Sub-task", "Sub-bug"}
-PARENT_ISSUE_TYPES = {"Story", "Enabler", "Bug", "Config Change"}
-SEMANTIC_VERSION_PATTERN = re.compile(
-    r"^(Deploy|Hotfix|Config)\."
-    r"(ai-data|core-dev-1|core-dev-2|core-dev-3|core-dev-3-Payments|core-dev-3-Sport|"
-    r"cust-onb-1|cust-onb-2|cust-onb-2-Integrations|cust-onb-2-Reporting|ps-dev-1|"
-    r"ps-dev-2|prod-care|fe-dev|sw-arch)"
-    r"\.\d{2}\.[1-4]\.\d+(\.\d+)?$",
-    re.IGNORECASE,
-)
 
 log = logging.getLogger("service-version-report")
 log.setLevel(logging.INFO)
@@ -27,18 +22,14 @@ log.propagate = False
 report_lock = Lock()
 
 
-def is_semantic_release_version(name: str) -> bool:
-    return bool(SEMANTIC_VERSION_PATTERN.fullmatch(name))
-
-
 def _report(jira: JIRA, project_key: str, release_version: str) -> None:
     if not is_semantic_release_version(release_version):
         raise UserFacingError(f"'{release_version}' is not a valid semantic release version.")
 
     jql = f'''
-        project = {project_key}
+        project = {jql_project(project_key)}
         AND issuetype IN ("Story", "Enabler", "Bug", "Config Change")
-        AND fixVersion = "{release_version}"
+        AND fixVersion = {jql_quote(release_version)}
         ORDER BY key ASC
     '''
 

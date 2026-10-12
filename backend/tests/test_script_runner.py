@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 
 from jira.exceptions import JIRAError
 
@@ -83,3 +84,58 @@ def test_a_second_run_says_it_is_waiting_for_the_first() -> None:
     let_first_finish.set()
     assert list(first) == []
     assert any("second ran" in line for line in second)
+
+
+def test_a_queued_run_gives_up_after_the_wait_timeout_without_starting() -> None:
+    logger = make_logger("test-runner-timeout")
+    lock = threading.Lock()
+    lock.acquire()  # another run holds it and never finishes
+    ran: list[str] = []
+
+    output = list(
+        stream_script_log(logger, lock, lambda: ran.append("work"), "failed", wait_timeout=0.2)
+    )
+
+    assert "| WARNING | Another run is in progress." in output[0]
+    assert "| ERROR | Another run is still in progress" in output[1]
+    assert "Nothing was started" in output[1]
+    assert ran == []
+    assert lock.locked()  # still the other run's lock, never released by us
+
+
+def test_a_queued_run_whose_client_left_never_starts() -> None:
+    logger = make_logger("test-runner-abandoned-queue")
+    lock = threading.Lock()
+    lock.acquire()
+    ran: list[str] = []
+
+    stream = stream_script_log(logger, lock, lambda: ran.append("work"), "failed")
+    assert "Another run is in progress" in next(stream)
+    stream.close()  # the client disconnects while queued
+    lock.release()
+
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline and not lock.acquire(blocking=False):
+        time.sleep(0.01)
+    else:
+        lock.release()
+    time.sleep(0.2)
+    assert ran == []
+
+
+def test_a_started_run_completes_even_if_the_client_disconnects() -> None:
+    logger = make_logger("test-runner-abandoned-run")
+    release_work = threading.Event()
+    finished = threading.Event()
+
+    def work() -> None:
+        logger.info("started")
+        assert release_work.wait(timeout=5)
+        finished.set()
+
+    stream = stream_script_log(logger, threading.Lock(), work, "failed")
+    assert "started" in next(stream)
+    stream.close()  # the client disconnects mid-run
+    release_work.set()
+
+    assert finished.wait(timeout=5)

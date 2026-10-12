@@ -17,6 +17,16 @@ from .main_paths import PROJECT_ROOT
 SESSION_COOKIE = "pm_session"
 SESSION_TTL = 7 * 24 * 60 * 60
 
+# Login throttling, per username. After MAX_FREE_FAILURES wrong passwords in a row the account
+# is locked for a delay that doubles with each further failure, up to MAX_LOCKOUT. Failures are
+# forgotten after FAILURE_MEMORY seconds without an attempt. Unknown usernames are tracked the
+# same way, so throttling does not reveal which accounts exist.
+MAX_FREE_FAILURES = 5
+BASE_LOCKOUT = 30
+MAX_LOCKOUT = 15 * 60
+FAILURE_MEMORY = 15 * 60
+MAX_TRACKED_USERNAMES = 10_000
+
 
 def configured_users() -> dict[str, str]:
     load_dotenv(PROJECT_ROOT / ".env")
@@ -42,6 +52,8 @@ class Authentication:
         self.hasher = PasswordHasher()
         self.dummy_hash = self.hasher.hash(secrets.token_urlsafe(32))
         self.sessions: dict[str, tuple[str, float]] = {}
+        # username -> (consecutive failures, time of the last failure)
+        self.failures: dict[str, tuple[int, float]] = {}
         self.lock = Lock()
 
     def verify(self, username: str, password: str) -> bool:
@@ -51,6 +63,40 @@ class Authentication:
             return valid and username in self.users
         except VerificationError:
             return False
+
+    def lockout_remaining(self, username: str) -> int:
+        """Seconds until ``username`` may try again, or 0 when it may try now."""
+        with self.lock:
+            record = self.failures.get(username)
+            if record is None:
+                return 0
+            count, last = record
+            now = time.time()
+            if now - last > FAILURE_MEMORY:
+                del self.failures[username]
+                return 0
+            if count < MAX_FREE_FAILURES:
+                return 0
+            delay = min(BASE_LOCKOUT * 2 ** (count - MAX_FREE_FAILURES), MAX_LOCKOUT)
+            return max(0, int(last + delay - now) + 1)
+
+    def record_failure(self, username: str) -> None:
+        with self.lock:
+            now = time.time()
+            if len(self.failures) >= MAX_TRACKED_USERNAMES:
+                self.failures = {
+                    key: value for key, value in self.failures.items() if now - value[1] <= FAILURE_MEMORY
+                }
+            if len(self.failures) >= MAX_TRACKED_USERNAMES and username not in self.failures:
+                return  # Bounded memory wins over tracking one more name.
+            count, last = self.failures.get(username, (0, now))
+            if now - last > FAILURE_MEMORY:
+                count = 0
+            self.failures[username] = (count + 1, now)
+
+    def record_success(self, username: str) -> None:
+        with self.lock:
+            self.failures.pop(username, None)
 
     def create_session(self, username: str) -> str:
         token = secrets.token_urlsafe(32)

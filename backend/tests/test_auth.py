@@ -5,7 +5,7 @@ import pytest
 from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
 
-from backend.app.auth import configured_users
+from backend.app.auth import Authentication, configured_users
 from backend.app.main import create_app
 
 HASH = PasswordHasher().hash("correct-password")
@@ -92,3 +92,96 @@ def test_unconfigured_login_fails_closed():
         "/api/auth/login", json={"username": "alice", "password": "password"},
     )
     assert response.status_code == 503
+
+
+def attempt(connection, username="alice@example.com", password="wrong"):
+    return connection.post("/api/auth/login", json={"username": username, "password": password})
+
+
+def test_repeated_failures_lock_the_username_with_a_retry_delay():
+    connection = client()
+    for _ in range(5):
+        assert attempt(connection).status_code == 401
+
+    locked = attempt(connection)
+    assert locked.status_code == 429
+    assert int(locked.headers["retry-after"]) > 0
+    assert "Too many failed sign-in attempts" in locked.json()["detail"]
+    # Even the right password waits out the lockout.
+    assert attempt(connection, password="correct-password").status_code == 429
+
+
+def test_unknown_usernames_are_throttled_the_same_way():
+    connection = client()
+    for _ in range(5):
+        assert attempt(connection, username="nobody@example.com").status_code == 401
+    assert attempt(connection, username="nobody@example.com").status_code == 429
+
+
+def test_a_successful_sign_in_resets_the_failure_count():
+    connection = client()
+    for _ in range(4):
+        assert attempt(connection).status_code == 401
+    assert attempt(connection, password="correct-password").status_code == 200
+    for _ in range(4):
+        assert attempt(connection).status_code == 401
+    assert attempt(connection, password="correct-password").status_code == 200
+
+
+def test_lockout_ends_and_failures_are_forgotten(monkeypatch):
+    connection = client()
+    authentication = connection.app.state.authentication
+    for _ in range(5):
+        attempt(connection)
+    assert attempt(connection).status_code == 429
+    count, last = authentication.failures["alice@example.com"]
+    authentication.failures["alice@example.com"] = (count, last - 60)
+    assert attempt(connection, password="correct-password").status_code == 200
+
+
+def test_lockout_delay_doubles_and_is_capped():
+    authentication = Authentication({})
+    for _ in range(5):
+        authentication.record_failure("a")
+    first = authentication.lockout_remaining("a")
+    authentication.record_failure("a")
+    assert authentication.lockout_remaining("a") > first
+    for _ in range(30):
+        authentication.record_failure("a")
+    assert authentication.lockout_remaining("a") <= 15 * 60 + 1
+
+
+def test_the_failure_table_stays_bounded(monkeypatch):
+    monkeypatch.setattr("backend.app.auth.MAX_TRACKED_USERNAMES", 3)
+    authentication = Authentication({})
+    for name in "abcdef":
+        authentication.record_failure(name)
+    assert len(authentication.failures) == 3
+
+
+def test_allowed_origin_is_used_instead_of_the_request_origin(monkeypatch):
+    monkeypatch.setenv("ALLOWED_ORIGIN", "https://tools.example.com/")
+    connection = client()
+    ok = connection.post(
+        "/api/auth/login", headers={"Origin": "https://tools.example.com"},
+        json={"username": "alice@example.com", "password": "correct-password"},
+    )
+    assert ok.status_code == 200
+    other = connection.post("/api/auth/login", headers={"Origin": "http://testserver"})
+    assert other.status_code == 403
+
+
+def test_without_allowed_origin_the_request_origin_still_works():
+    connection = client()
+    ok = connection.post(
+        "/api/auth/login", headers={"Origin": "http://testserver"},
+        json={"username": "alice@example.com", "password": "correct-password"},
+    )
+    assert ok.status_code == 200
+
+
+@pytest.mark.parametrize("value", ["tools.example.com", "ftp://x.example.com", "https://x.example.com/path"])
+def test_malformed_allowed_origin_fails_at_startup(monkeypatch, value):
+    monkeypatch.setenv("ALLOWED_ORIGIN", value)
+    with pytest.raises(RuntimeError, match="ALLOWED_ORIGIN"):
+        client()

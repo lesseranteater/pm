@@ -4,6 +4,7 @@ import logging
 import os
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlsplit
 from typing import Callable, Iterable, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
@@ -25,7 +26,8 @@ from .release_semantic_version import (
     get_semantic_versions,
     stream_release_semantic_version,
 )
-from .service_versions import is_semantic_release_version, stream_service_versions_report
+from .jira_rules import PROJECT_KEY_REGEX, is_semantic_release_version
+from .service_versions import stream_service_versions_report
 
 DEFAULT_FRONTEND_BUILD = PROJECT_ROOT / "frontend" / "build"
 log = logging.getLogger(__name__)
@@ -57,7 +59,7 @@ class JiraTokenRequest(BaseModel):
 
 
 class ServiceVersionRequest(BaseModel):
-    project_key: str = Field(pattern=r"^[A-Z][A-Z0-9_]{1,9}$")
+    project_key: str = Field(pattern=PROJECT_KEY_REGEX)
     release_version: str = Field(min_length=1, max_length=120)
 
     @field_validator("release_version")
@@ -81,7 +83,7 @@ class SemanticReleaseRequest(BaseModel):
 
 
 class VersionListRequest(BaseModel):
-    project_key: str = Field(pattern=r"^[A-Z][A-Z0-9_]{1,9}$")
+    project_key: str = Field(pattern=PROJECT_KEY_REGEX)
     version_names: list[str] = Field(min_length=1, max_length=500)
 
     @field_validator("version_names")
@@ -94,7 +96,7 @@ class VersionListRequest(BaseModel):
 
 
 class ArchiveRequest(BaseModel):
-    project_key: str = Field(pattern=r"^[A-Z][A-Z0-9_]{1,9}$")
+    project_key: str = Field(pattern=PROJECT_KEY_REGEX)
     is_dry_run: bool
     archive_by: Literal["date", "versions"] = "date"
     archive_until: date | None = None
@@ -129,9 +131,12 @@ class ApiAuthMiddleware:
 
     PUBLIC_PATHS = {"/api/health", "/api/auth/login", "/api/auth/logout"}
 
-    def __init__(self, app: ASGIApp, authentication: Authentication) -> None:
+    def __init__(self, app: ASGIApp, authentication: Authentication, allowed_origin: str = "") -> None:
         self.app = app
         self.authentication = authentication
+        # Behind a TLS-terminating proxy the app sees http, so the public origin is configured.
+        # Unset, the origin is taken from the request itself, as before.
+        self.allowed_origin = allowed_origin
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or not scope["path"].startswith("/api/"):
@@ -162,7 +167,8 @@ class ApiAuthMiddleware:
     def _rejection(self, request: Request, path: str, user: str | None, token: str) -> JSONResponse | None:
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             origin = request.headers.get("origin")
-            if origin and origin != str(request.base_url).rstrip("/"):
+            expected = self.allowed_origin or str(request.base_url).rstrip("/")
+            if origin and origin != expected:
                 return JSONResponse(status_code=403, content={"detail": "Cross-origin request rejected"})
         if path in self.PUBLIC_PATHS:
             return None
@@ -186,6 +192,17 @@ def _log_response(result: ScriptLog) -> StreamingResponse:
         media_type="text/plain; charset=utf-8",
         headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
     )
+
+
+def _configured_origin(value: str) -> str:
+    """Validate the optional ALLOWED_ORIGIN setting, for example https://tools.example.com."""
+    origin = value.strip().rstrip("/")
+    if not origin:
+        return ""
+    parsed = urlsplit(origin)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.path or parsed.query:
+        raise RuntimeError("ALLOWED_ORIGIN must look like https://tools.example.com (scheme and host only)")
+    return origin
 
 
 def _frontend_file(build_dir: Path, request_path: str) -> Path | None:
@@ -216,18 +233,41 @@ def create_app(
     ).resolve()
     app = FastAPI(title="Svelte FastAPI Starter API", version="0.1.0")
     authentication = Authentication(configured_users() if auth_users is None else auth_users)
+    # uvicorn's logger is configured at INFO, so this shows in the server log by default.
+    startup_log = logging.getLogger("uvicorn.error")
+    if authentication.users:
+        startup_log.info("Authentication: %d user(s) configured", len(authentication.users))
+    else:
+        startup_log.warning("Authentication: no users configured, so sign-in is disabled (set AUTH_USERS_JSON)")
     app.state.authentication = authentication
     secure_cookie = os.environ.get("COOKIE_SECURE", "false").lower() in {"true", "1", "yes"}
+    allowed_origin = _configured_origin(os.environ.get("ALLOWED_ORIGIN", ""))
+    if not secure_cookie:
+        log.warning(
+            "Cookies are not marked Secure (COOKIE_SECURE is off). This is fine over plain HTTP; "
+            "set COOKIE_SECURE=true once the app is served over HTTPS."
+        )
 
-    app.add_middleware(ApiAuthMiddleware, authentication=authentication)
+    app.add_middleware(ApiAuthMiddleware, authentication=authentication, allowed_origin=allowed_origin)
 
     @app.post("/api/auth/login", tags=["auth"])
     async def login(credentials: LoginRequest, request: Request, response: Response) -> dict[str, str]:
         if not authentication.users:
             raise HTTPException(status_code=503, detail="Authentication is not configured")
         username = credentials.username.strip().lower()
+        wait = authentication.lockout_remaining(username)
+        if wait:
+            log.warning("Sign-in throttled for a username after repeated failures")
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many failed sign-in attempts. Try again in {wait} seconds.",
+                headers={"Retry-After": str(wait), "Cache-Control": "no-store"},
+            )
         if not await run_in_threadpool(authentication.verify, username, credentials.password):
+            authentication.record_failure(username)
+            log.warning("Failed sign-in attempt")
             raise HTTPException(status_code=401, detail="Invalid username or password")
+        authentication.record_success(username)
         authentication.logout(request.cookies.get(SESSION_COOKIE))
         response.set_cookie(
             SESSION_COOKIE, authentication.create_session(username), max_age=SESSION_TTL,
@@ -264,21 +304,14 @@ def create_app(
 
     @app.post("/api/service-versions", tags=["service-versions"])
     async def service_versions(request: ServiceVersionRequest) -> StreamingResponse:
-        try:
-            return _log_response(
-                service_version_reporter(request.project_key, request.release_version)
-            )
-        except Exception:
-            log.exception("Unable to retrieve service versions from Jira")
-            raise HTTPException(
-                status_code=503,
-                detail="Unable to retrieve service versions from Jira",
-            ) from None
+        # The runners are generators: nothing runs until the response is iterated, and a failure
+        # is explained in the streamed log, so there is nothing to catch here.
+        return _log_response(service_version_reporter(request.project_key, request.release_version))
 
     @app.get("/api/semantic-versions", tags=["release-semantic-version"])
     def semantic_versions(
         status: Literal["unreleased", "released", "archived"] = "unreleased",
-        project_key: str = Query(default="IGM", pattern=r"^[A-Z][A-Z0-9_]{1,9}$"),
+        project_key: str = Query(default="IGM", pattern=PROJECT_KEY_REGEX),
     ) -> list[str]:
         try:
             return semantic_version_lister(status, project_key)
@@ -293,27 +326,18 @@ def create_app(
 
     @app.post("/api/archive-released-versions", tags=["archive-released-versions"])
     async def archive_versions(request: ArchiveRequest) -> StreamingResponse:
-        try:
-            if request.archive_by == "versions":
-                return _log_response(named_version_archiver(
-                    request.project_key, request.is_dry_run, request.version_names,
-                ))
+        if request.archive_by == "versions":
             return _log_response(
-                released_version_archiver(
-                    request.project_key, request.is_dry_run, request.archive_until
-                )
+                named_version_archiver(request.project_key, request.is_dry_run, request.version_names)
             )
-        except Exception:
-            log.exception("Unable to archive released versions")
-            raise HTTPException(
-                status_code=503,
-                detail="Unable to archive released versions",
-            ) from None
+        return _log_response(
+            released_version_archiver(request.project_key, request.is_dry_run, request.archive_until)
+        )
 
     @app.get("/api/archive-released-versions/preview", tags=["archive-released-versions"])
     def archive_preview(
         archive_until: date,
-        project_key: str = Query(pattern=r"^[A-Z][A-Z0-9_]{1,9}$"),
+        project_key: str = Query(pattern=PROJECT_KEY_REGEX),
     ) -> dict[str, int]:
         if archive_until > date.today():
             raise HTTPException(status_code=422, detail="Archive date cannot be in the future")
@@ -340,27 +364,17 @@ def create_app(
 
     @app.post("/api/release-semantic-version", tags=["release-semantic-version"])
     async def release_version(request: SemanticReleaseRequest) -> StreamingResponse:
-        try:
-            return _log_response(
-                semantic_version_releaser(request.version_name, request.is_dry_run)
-            )
-        except Exception:
-            log.exception("Unable to release semantic version")
-            raise HTTPException(
-                status_code=503,
-                detail="Unable to release semantic version",
-            ) from None
+        return _log_response(semantic_version_releaser(request.version_name, request.is_dry_run))
 
     @app.post("/api/release-check", tags=["release-check"])
     async def release_check(request: ReleaseCheckRequest) -> StreamingResponse:
-        try:
-            return _log_response(release_checker(request.deployment_plan_key))
-        except Exception:
-            log.exception("Unable to run release check")
-            raise HTTPException(status_code=503, detail="Unable to run release check") from None
+        return _log_response(release_checker(request.deployment_plan_key))
 
     @app.get("/{request_path:path}", include_in_schema=False)
     async def frontend(request_path: str):
+        if request_path == "api" or request_path.startswith("api/"):
+            return JSONResponse(status_code=404, content={"detail": "Not found"})
+
         legacy_target = LEGACY_PAGE_REDIRECTS.get(request_path.strip("/"))
         if legacy_target:
             return RedirectResponse(legacy_target, status_code=308)

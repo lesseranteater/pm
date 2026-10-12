@@ -89,17 +89,36 @@ def test_service_versions_endpoint_returns_the_report(tmp_path: Path) -> None:
     assert requested_parameters == [("IGM", "Deploy.ai-data.26.4.1")]
 
 
-def test_service_versions_endpoint_hides_upstream_errors(tmp_path: Path) -> None:
-    def fail(project_key: str, release_version: str) -> str:
-        raise RuntimeError("Jira token must not be exposed")
+def failing_run(secret: str):
+    """A real streamed run whose work fails, as a Jira outage would."""
+    import logging
+    import threading
 
-    response = make_client(tmp_path, fail).post(
+    from backend.app.script_runner import stream_script_log
+
+    logger = logging.getLogger("test-main-failing-run")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+    def work() -> None:
+        raise RuntimeError(secret)
+
+    return stream_script_log(logger, threading.Lock(), work, "Run failed.")
+
+
+def test_service_versions_failure_is_reported_in_the_log_without_leaking(tmp_path: Path) -> None:
+    client = make_client(
+        tmp_path, lambda project_key, release_version: failing_run("Jira token must not be exposed")
+    )
+
+    response = client.post(
         "/api/service-versions",
         json={"project_key": "IGM", "release_version": "Deploy.ai-data.26.4.1"},
     )
 
-    assert response.status_code == 503
-    assert response.json() == {"detail": "Unable to retrieve service versions from Jira"}
+    assert response.status_code == 200
+    assert "| ERROR | Run failed." in response.text
+    assert "Jira token must not be exposed" not in response.text
 
 
 def test_service_versions_endpoint_rejects_invalid_parameters(tmp_path: Path) -> None:
@@ -226,16 +245,20 @@ def test_archive_released_versions_rejects_invalid_requests(tmp_path: Path) -> N
     ).status_code == 422
 
 
-def test_archive_released_versions_reports_failure(tmp_path: Path) -> None:
-    def fail(project_key: str, is_dry_run: bool, archive_until: date) -> str:
-        raise RuntimeError("boom")
+def test_archive_released_versions_failure_is_reported_in_the_log(tmp_path: Path) -> None:
+    client = make_client(
+        tmp_path,
+        released_version_archiver=lambda project_key, is_dry_run, archive_until: failing_run("boom"),
+    )
 
-    response = make_client(tmp_path, released_version_archiver=fail).post(
+    response = client.post(
         "/api/archive-released-versions",
         json={"project_key": "IGM", "is_dry_run": False, "archive_until": "2026-09-30"},
     )
 
-    assert response.status_code == 503
+    assert response.status_code == 200
+    assert "| ERROR | Run failed." in response.text
+    assert "boom" not in response.text
 
 
 def test_named_archive_forwards_only_normalized_version_names(tmp_path: Path) -> None:
@@ -457,3 +480,26 @@ def test_static_files_skip_the_session_lookup(tmp_path: Path) -> None:
     assert lookups == []
     assert client.get("/api/health").status_code == 200
     assert len(lookups) == 1
+
+
+def test_unknown_api_paths_return_a_json_404(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+
+    for path in ("/api/typo", "/api/auth/typo", "/api"):
+        response = client.get(path)
+        assert response.status_code == 404, path
+        assert response.json() == {"detail": "Not found"}
+
+    assert client.get("/some-page").text == "<html>fallback</html>"
+
+
+def test_startup_reports_how_many_users_are_configured(caplog) -> None:
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="uvicorn.error"):
+        create_app(None, auth_users={"a@example.com": TEST_PASSWORD_HASH})
+        create_app(None, auth_users={})
+
+    messages = [record.getMessage() for record in caplog.records if record.name == "uvicorn.error"]
+    assert "Authentication: 1 user(s) configured" in messages
+    assert any("no users configured" in message for message in messages)

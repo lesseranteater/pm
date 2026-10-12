@@ -106,7 +106,18 @@ Credentials are verified server-side; missing configuration disables login.
 All Jira API routes require the HTTP-only `pm_session` cookie. Sessions last seven
 days, live only in server memory, and are invalidated by logout or a server
 restart. Run a single Uvicorn worker. Password changes require restarting the app.
-Set `COOKIE_SECURE=true` when serving over HTTPS; leave it false for local HTTP.
+Set `COOKIE_SECURE=true` when serving over HTTPS; leave it false for local HTTP
+(browsers do not send `Secure` cookies over plain HTTP, so setting it early breaks login).
+
+Behind a proxy that terminates HTTPS, also set `ALLOWED_ORIGIN=https://your-domain`
+(scheme and host only). The app then accepts browser `POST` requests whose `Origin`
+header matches it. Without it the app compares `Origin` with the address it sees
+itself, which is correct for plain HTTP but rejects every `POST` behind a proxy.
+
+Sign-in is throttled per username: after five wrong passwords in a row the username
+is locked for 30 seconds, doubling with each further failure up to 15 minutes. The
+count resets after a successful sign-in or 15 minutes without attempts. Unknown
+usernames are throttled the same way.
 The session endpoints are `/api/auth/login`, `/api/auth/me`, and `/api/auth/logout`.
 
 After signing in, enter your Jira Personal Access Token in the modal. The app

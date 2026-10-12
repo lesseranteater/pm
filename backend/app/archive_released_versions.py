@@ -11,10 +11,10 @@ from jira import JIRA
 from jira.exceptions import JIRAError
 from jira.resources import Version
 
-from .errors import ProjectNotFoundError
-from .release_semantic_version import create_jira_client
+from .errors import ProjectNotFoundError, explain_exception
+from .jira_credentials import create_jira_client
 from .script_runner import stream_script_log
-from .service_versions import is_semantic_release_version
+from .jira_rules import is_semantic_release_version
 
 log = logging.getLogger("archive-released-versions")
 log.setLevel(logging.INFO)
@@ -64,17 +64,9 @@ def group_versions(versions: Iterable[Version]) -> tuple[list[Version], list[Ver
     return semantic, service
 
 
-def archive_version(jira: JIRA, version: Version) -> None:
-    """Archive a version by setting ``archived`` through Jira's REST API."""
-    server = jira._options.get("server")
-    if not server:
-        raise JIRAError("JIRA server URL not available on client._options")
-
-    response = jira._session.put(
-        f"{server.rstrip('/')}/rest/api/2/version/{version.id}",
-        json={"archived": True},
-    )
-    response.raise_for_status()
+def archive_version(version: Version) -> None:
+    """Archive a version. Jira failures raise ``JIRAError`` so they can be explained to the user."""
+    version.update(archived=True)
 
 
 def _archive(jira: JIRA, project_key: str, is_dry_run: bool, archive_until: date) -> None:
@@ -122,10 +114,12 @@ def _archive_candidates(jira: JIRA, candidates: list[Version], is_dry_run: bool)
     for version in candidates:
         try:
             log.info("Archiving %s (id=%s)...", version.name, version.id)
-            archive_version(jira, version)
+            archive_version(version)
             archived += 1
         except Exception as error:
-            log.warning("Failed to archive %s (id=%s): %s", version.name, version.id, error)
+            log.warning(
+                "Failed to archive %s (id=%s): %s", version.name, version.id, explain_exception(error)
+            )
 
     if archived < len(candidates):
         log.error("Archived only %d of %d version(s); see the warnings above.", archived, len(candidates))

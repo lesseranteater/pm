@@ -11,6 +11,8 @@ from typing import Callable, Iterator
 from .errors import explain_exception
 
 server_log = logging.getLogger(__name__)
+# How long a queued run waits for the one in front of it before giving up.
+LOCK_WAIT_SECONDS = 15 * 60
 LOG_FORMAT = "%(asctime)s | %(levelname)s | %(message)s"
 _FINISHED = object()
 
@@ -32,33 +34,57 @@ def stream_script_log(
     lock: threading.Lock,
     work: Callable[[], None],
     failure_message: str,
+    wait_timeout: float = LOCK_WAIT_SECONDS,
 ) -> Iterator[str]:
     """Yield the log lines of ``work`` as they are written.
 
     The workflows change shared Jira state and use a module-level logger, so only one
-    runs at a time. A second caller is told it is waiting instead of looking stuck.
+    runs at a time. A second caller is told it is waiting instead of looking stuck, and
+    gives up after ``wait_timeout`` seconds so a stuck run cannot hold callers forever.
     Failures never escape: they are explained in the log, so the stream always ends
     normally and the caller sees exactly what happened.
+
+    If the caller disconnects while still queued, the run never starts. If it disconnects
+    after the run has started, the run completes anyway: stopping a release or archive
+    half-way is worse than finishing it. Its output is then dropped, and the result queue is
+    deliberately unbounded so a slow client can never block a run that holds the lock.
     """
     chunks: "queue.Queue[object]" = queue.Queue()
     handler = _QueueHandler(chunks)
+    decision = threading.Lock()  # guards the two flags below
+    started = False
+    abandoned = False
+
+    def say(level: int, message: str) -> None:
+        chunks.put(
+            handler.format(
+                logging.makeLogRecord(
+                    {"levelname": logging.getLevelName(level), "levelno": level, "msg": message}
+                )
+            )
+            + "\n"
+        )
 
     def run() -> None:
-        if not lock.acquire(blocking=False):
-            chunks.put(
-                handler.format(
-                    logging.makeLogRecord(
-                        {
-                            "levelname": "WARNING",
-                            "levelno": logging.WARNING,
-                            "msg": "Another run is in progress. Waiting for it to finish...",
-                        }
-                    )
-                )
-                + "\n"
+        nonlocal started
+        acquired = lock.acquire(blocking=False)
+        if not acquired:
+            say(logging.WARNING, "Another run is in progress. Waiting for it to finish...")
+            acquired = lock.acquire(timeout=wait_timeout)
+        if not acquired:
+            say(
+                logging.ERROR,
+                f"Another run is still in progress after {int(wait_timeout // 60)} minute(s). "
+                "Nothing was started. Try again once it has finished.",
             )
-            lock.acquire()
+            chunks.put(_FINISHED)
+            return
         try:
+            with decision:
+                if abandoned:
+                    server_log.info("Queued run skipped: the client disconnected before it started")
+                    return
+                started = True
             logger.addHandler(handler)
             try:
                 work()
@@ -76,8 +102,18 @@ def stream_script_log(
     context = copy_context()
     threading.Thread(target=lambda: context.run(run), daemon=True).start()
 
-    while True:
-        chunk = chunks.get()
-        if chunk is _FINISHED:
-            return
-        yield str(chunk)
+    finished = False
+    try:
+        while True:
+            chunk = chunks.get()
+            if chunk is _FINISHED:
+                finished = True
+                return
+            yield str(chunk)
+    finally:
+        if not finished:
+            with decision:
+                if started:
+                    server_log.info("Client disconnected mid-run; the run continues to completion")
+                else:
+                    abandoned = True

@@ -9,7 +9,13 @@ from jira.resources import Issue, Version
 from .errors import ProjectNotFoundError, UserFacingError, explain_exception
 from .jira_credentials import create_jira_client
 from .script_runner import stream_script_log
-from .service_versions import PARENT_ISSUE_TYPES, RELEASABLE_SUBTASK_TYPES, is_semantic_release_version
+from .jira_rules import (
+    PARENT_ISSUE_TYPES,
+    RELEASABLE_SUBTASK_TYPES,
+    is_semantic_release_version,
+    jql_project,
+    jql_quote,
+)
 
 # ============================================================================
 # CONFIGURATION
@@ -963,7 +969,7 @@ def _release_version(jira: JIRA, version_name: str, is_dry_run: bool) -> None:
     # FIND ALL ISSUES CARRYING THIS VERSION
     # ========================================================================
 
-    jql = f"project = {PROJECT_KEY} " f'AND fixVersion = "{version_name}"'
+    jql = f"project = {jql_project(PROJECT_KEY)} AND fixVersion = {jql_quote(version_name)}"
 
     issues = search_all_issues(
         jira,

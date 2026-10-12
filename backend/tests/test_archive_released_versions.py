@@ -114,7 +114,7 @@ def test_real_run_archives_semantic_versions_before_service_versions(monkeypatch
 
 
 def run(monkeypatch, is_dry_run: bool, jira: FakeJira, archived: list[str], fail: set[str] = frozenset()) -> str:
-    def fake_archive(_jira, v):
+    def fake_archive(v):
         if v.name in fail:
             raise JIRAError("nope")
         archived.append(v.name)
@@ -193,7 +193,7 @@ def test_preview_counts_the_versions_without_changing_anything(monkeypatch) -> N
     ]
     archived: list[str] = []
     monkeypatch.setattr(archive_released_versions, "create_jira_client", lambda: FakeJira(mixed))
-    monkeypatch.setattr(archive_released_versions, "archive_version", lambda *_: archived.append("x"))
+    monkeypatch.setattr(archive_released_versions, "archive_version", lambda _version: archived.append("x"))
 
     result = archive_released_versions.preview_archive("IGM", TODAY)
 
@@ -222,7 +222,7 @@ def test_named_selection_ignores_dates_and_explains_exclusions():
 def test_named_archive_dry_run_and_live_only_touch_listed_released_versions(monkeypatch):
     archived = []
     monkeypatch.setattr(archive_released_versions, "create_jira_client", lambda: FakeJira())
-    monkeypatch.setattr(archive_released_versions, "archive_version", lambda jira, item: archived.append(item.name))
+    monkeypatch.setattr(archive_released_versions, "archive_version", lambda item: archived.append(item.name))
     names = ["no-date", "future-released", "unreleased", "already-archived", "no-date"]
     output = "".join(archive_released_versions.stream_archive_versions("IGM", True, names))
     assert archived == []
@@ -235,7 +235,7 @@ def test_named_archive_dry_run_and_live_only_touch_listed_released_versions(monk
 def test_unknown_name_blocks_all_changes_even_if_other_names_are_valid(monkeypatch):
     archived = []
     monkeypatch.setattr(archive_released_versions, "create_jira_client", lambda: FakeJira())
-    monkeypatch.setattr(archive_released_versions, "archive_version", lambda jira, item: archived.append(item.name))
+    monkeypatch.setattr(archive_released_versions, "archive_version", lambda item: archived.append(item.name))
     output = "".join(archive_released_versions.stream_archive_versions("IGM", False, ["old-released", "missing"]))
     assert archived == []
     assert "Unknown version names: missing" in output
@@ -245,3 +245,39 @@ def test_named_preview_is_read_only(monkeypatch):
     monkeypatch.setattr(archive_released_versions, "create_jira_client", lambda: FakeJira())
     result = archive_released_versions.preview_archive_versions("IGM", ["no-date", "unreleased", "missing", "already-archived"])
     assert result == {"count": 1, "semantic": 0, "service": 1, "eligible": ["no-date"], "unknown": ["missing"], "unreleased": ["unreleased"], "already_archived": ["already-archived"]}
+
+
+def test_archive_version_uses_the_public_update_call() -> None:
+    calls: list[dict] = []
+    item = SimpleNamespace(update=lambda **fields: calls.append(fields))
+
+    archive_released_versions.archive_version(item)
+
+    assert calls == [{"archived": True}]
+
+
+def test_a_forbidden_archive_is_explained_and_the_run_continues(monkeypatch) -> None:
+    versions = [
+        version("first", True, False, "2026-01-01", id="1"),
+        version("second", True, False, "2026-01-02", id="2"),
+    ]
+    archived: list[str] = []
+
+    def update(name):
+        def run(**fields):
+            if name == "first":
+                raise JIRAError(status_code=403, url="https://jira.internal/x", text="no permission")
+            archived.append(name)
+
+        return run
+
+    for item in versions:
+        item.update = update(item.name)
+    monkeypatch.setattr(archive_released_versions, "create_jira_client", lambda: FakeJira(versions))
+
+    output = "".join(archive_released_versions.stream_archive_released_versions("IGM", False, TODAY))
+
+    assert archived == ["second"]
+    assert "Failed to archive first (id=1): Jira denied access (HTTP 403)" in output
+    assert "jira.internal" not in output
+    assert "| ERROR | Archived only 1 of 2 version(s)" in output

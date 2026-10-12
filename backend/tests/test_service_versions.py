@@ -99,3 +99,23 @@ def test_report_rejects_a_non_semantic_release_version(monkeypatch) -> None:
     output = "".join(service_versions.stream_service_versions_report("IGM", "not-a-release"))
 
     assert "'not-a-release' is not a valid semantic release version." in output
+
+
+def test_the_jql_quotes_the_version_and_validates_the_project(monkeypatch) -> None:
+    seen = []
+
+    def search_issues(jql, **kwargs):
+        seen.append(jql)
+        return []
+
+    client = SimpleNamespace(search_issues=search_issues)
+    service_versions._report(client, "IGM", "Deploy.ai-data.26.4.1")
+    assert 'fixVersion = "Deploy.ai-data.26.4.1"' in seen[0]
+
+    try:
+        service_versions._report(client, "IGM OR project = X", "Deploy.ai-data.26.4.1")
+    except Exception as error:
+        assert "not a valid Jira project key" in str(error)
+    else:
+        raise AssertionError("a hostile project key must be refused")
+    assert len(seen) == 1
