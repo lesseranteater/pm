@@ -23,10 +23,34 @@ function daysAgo(days: number): string {
 
 /** Mocks the archive endpoints and records every run request. */
 async function mockArchive(page: Page) {
-  const runs: { project_key: string; archive_until: string; is_dry_run: boolean }[] = [];
+  const runs: {
+    project_key: string;
+    archive_until?: string;
+    archive_by?: string;
+    version_names?: string[];
+    is_dry_run: boolean;
+  }[] = [];
   const previews: string[] = [];
 
   await page.route('**/api/archive-released-versions/preview*', (route) => {
+    if (route.request().method() === 'POST') {
+      const names = route.request().postDataJSON().version_names as string[];
+      const eligible = names.filter(
+        (name) => !['missing', 'unreleased', 'archived'].includes(name)
+      );
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          count: eligible.length,
+          semantic: 0,
+          service: eligible.length,
+          eligible,
+          unknown: names.filter((name) => name === 'missing'),
+          unreleased: names.filter((name) => name === 'unreleased'),
+          already_archived: names.filter((name) => name === 'archived')
+        })
+      });
+    }
     previews.push(new URL(route.request().url()).searchParams.get('archive_until') ?? '');
     return route.fulfill({
       contentType: 'application/json',
@@ -36,9 +60,15 @@ async function mockArchive(page: Page) {
   await page.route('**/api/archive-released-versions', (route) => {
     const body = route.request().postDataJSON();
     runs.push(body);
+    const log = body.is_dry_run ? DRY_LOG : LIVE_LOG;
     return route.fulfill({
       contentType: 'text/plain; charset=utf-8',
-      body: body.is_dry_run ? DRY_LOG : LIVE_LOG
+      body:
+        body.archive_by === 'versions'
+          ? log
+              .replace('Found 3 version(s)', 'Found 2 version(s)')
+              .replace('Archived 2 of 3', 'Archived 2 of 2')
+          : log
     });
   });
 
@@ -57,12 +87,8 @@ test('loads without running, previews the count and dry-runs on request', async 
   await expect(page.getByText('would be archived (2 Semantic, 1 Service)')).toBeVisible();
   expect(runs).toEqual([]);
 
-  await page.getByRole('button', { name: '30 days ago' }).click();
+  await page.getByLabel('Archive Versions Released Up To').fill(daysAgo(30));
   await expect(page.getByLabel('Archive Versions Released Up To')).toHaveValue(daysAgo(30));
-  await expect(page.getByRole('button', { name: '30 days ago' })).toHaveAttribute(
-    'aria-pressed',
-    'true'
-  );
   await expect(page.getByRole('note')).toContainText('Dry Run is on');
 
   await page.getByRole('button', { name: 'Archive Versions', exact: true }).click();
@@ -115,7 +141,7 @@ test('changing the inputs after a run marks the log as out of date', async ({ pa
   await page.getByRole('button', { name: 'Archive Versions', exact: true }).click();
   await expect(page.getByText('Finished in')).toBeVisible();
 
-  await page.getByRole('button', { name: '90 days ago' }).click();
+  await page.getByLabel('Archive Versions Released Up To').fill(daysAgo(90));
 
   await expect(page.getByText('The inputs have changed since this run')).toBeVisible();
   await expect(page.getByText('Apply These Changes')).toBeHidden();
@@ -169,4 +195,63 @@ test('is reachable from the tool dropdown', async ({ page }) => {
 
   await expect(page).toHaveURL(/\/archive-released-versions$/);
   await expect(page.getByRole('heading', { name: 'Archive Released Versions' })).toBeVisible();
+});
+
+test('archives a deduplicated version list and keeps the methods exclusive', async ({ page }) => {
+  const { runs } = await mockArchive(page);
+  await page.goto('/archive-released-versions');
+  await page.getByLabel('Archive Versions Released Up To').fill(daysAgo(30));
+  await page.getByRole('radio', { name: 'Version list', exact: true }).check();
+  await expect(page.getByLabel('Archive Versions Released Up To')).toHaveCount(0);
+  await page
+    .getByLabel('Version Names', { exact: true })
+    .fill(' alpha, beta, alpha, unreleased, archived ');
+  await expect(
+    page.locator('.version-list-preview p').filter({ hasText: 'Eligible:' })
+  ).toContainText('alpha, beta');
+  await expect(page.getByText('Skipped — unreleased:', { exact: false })).toBeVisible();
+  await expect(page.getByText('Skipped — already archived:', { exact: false })).toBeVisible();
+  await expect(page.getByRole('note')).toContainText('Release dates are ignored');
+  await page.getByRole('button', { name: 'Archive Versions', exact: true }).click();
+  await expect(page.getByText('Dry run finished with no errors.')).toBeVisible();
+  expect(runs[0]).toEqual({
+    project_key: 'IGM',
+    archive_by: 'versions',
+    version_names: ['alpha', 'beta', 'unreleased', 'archived'],
+    is_dry_run: true
+  });
+  await page.getByRole('button', { name: 'Apply These Changes' }).click();
+  await expect(page.getByRole('dialog')).toContainText('alpha, beta, unreleased, archived');
+  await page.getByRole('dialog').getByRole('button', { name: 'Archive Versions (Live)' }).click();
+  await expect(page.getByRole('log')).toContainText('Archived 2 of 2');
+  expect(runs[1]).toEqual({ ...runs[0], is_dry_run: false });
+
+  await page.getByRole('radio', { name: 'Release date', exact: true }).check();
+  await expect(page.getByLabel('Version Names', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Archive Versions Released Up To')).toHaveValue(daysAgo(30));
+  await expect(page.getByRole('button', { name: 'Archive Versions (Live)' })).toBeDisabled();
+  await page.getByRole('radio', { name: 'Version list', exact: true }).check();
+  await expect(page.getByLabel('Version Names', { exact: true })).toHaveValue(
+    ' alpha, beta, alpha, unreleased, archived '
+  );
+  await expect(page.getByRole('button', { name: 'Archive Versions (Live)' })).toBeDisabled();
+});
+
+test('unknown names block archiving and editing the list invalidates a dry run', async ({
+  page
+}) => {
+  const { runs } = await mockArchive(page);
+  await page.goto('/archive-released-versions');
+  await page.getByRole('radio', { name: 'Version list', exact: true }).check();
+  await page.getByLabel('Version Names', { exact: true }).fill('alpha, missing');
+  await expect(page.getByRole('alert')).toContainText('Unknown names: missing');
+  await expect(page.getByRole('button', { name: 'Archive Versions', exact: true })).toBeDisabled();
+  expect(runs).toEqual([]);
+  await page.getByLabel('Version Names', { exact: true }).fill('alpha');
+  await page.getByRole('button', { name: 'Archive Versions', exact: true }).click();
+  await expect(page.getByText('Dry run finished with no errors.')).toBeVisible();
+  await page.getByLabel('Version Names', { exact: true }).fill('beta');
+  await expect(page.getByRole('button', { name: 'Apply These Changes' })).toBeHidden();
+  await page.getByRole('radio', { name: 'No', exact: true }).check();
+  await expect(page.getByRole('button', { name: 'Archive Versions (Live)' })).toBeDisabled();
 });

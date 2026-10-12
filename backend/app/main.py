@@ -9,9 +9,11 @@ from typing import Callable, Iterable, Literal
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from starlette.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
-from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 
-from .archive_released_versions import preview_archive, stream_archive_released_versions
+from .archive_released_versions import (
+    preview_archive, stream_archive_released_versions, preview_archive_versions, stream_archive_versions,
+)
 from .auth import Authentication, SESSION_COOKIE, SESSION_TTL, configured_users
 from .jira_credentials import JIRA_TOKEN_COOKIE, jira_token
 from .errors import ProjectNotFoundError, explain_exception
@@ -77,17 +79,40 @@ class SemanticReleaseRequest(BaseModel):
         return value
 
 
+class VersionListRequest(BaseModel):
+    project_key: str = Field(pattern=r"^[A-Z][A-Z0-9_]{1,9}$")
+    version_names: list[str] = Field(min_length=1, max_length=500)
+
+    @field_validator("version_names")
+    @classmethod
+    def validate_names(cls, values: list[str]) -> list[str]:
+        names = [value.strip() for value in values]
+        if any(not name or len(name) > 255 for name in names):
+            raise ValueError("Version names must contain between 1 and 255 characters")
+        return list(dict.fromkeys(names))
+
+
 class ArchiveRequest(BaseModel):
     project_key: str = Field(pattern=r"^[A-Z][A-Z0-9_]{1,9}$")
     is_dry_run: bool
-    archive_until: date
+    archive_by: Literal["date", "versions"] = "date"
+    archive_until: date | None = None
+    version_names: list[str] | None = None
 
-    @field_validator("archive_until")
-    @classmethod
-    def validate_archive_until(cls, value: date) -> date:
-        if value > date.today():
-            raise ValueError("Archive date cannot be in the future")
-        return value
+    @model_validator(mode="after")
+    def validate_selection(self):
+        if self.archive_by == "date":
+            if self.archive_until is None or self.archive_until > date.today():
+                raise ValueError("Choose an archive date that is not in the future")
+            if self.version_names is not None:
+                raise ValueError("Version list cannot be used with date mode")
+        else:
+            if self.archive_until is not None:
+                raise ValueError("Archive date cannot be used with version-list mode")
+            self.version_names = VersionListRequest(
+                project_key=self.project_key, version_names=self.version_names or [],
+            ).version_names
+        return self
 
 
 class ReleaseCheckRequest(BaseModel):
@@ -124,6 +149,8 @@ def create_app(
     jira_configured: Callable[[], bool] = jira_token_configured,
     release_checker: Callable[[str], ScriptLog] = stream_release_check,
     auth_users: dict[str, str] | None = None,
+    named_version_archiver: Callable[[str, bool, list[str]], ScriptLog] = stream_archive_versions,
+    named_version_previewer: Callable[[str, list[str]], dict[str, int | list[str]]] = preview_archive_versions,
 ) -> FastAPI:
     build_dir = Path(
         frontend_build_dir or os.environ.get("FRONTEND_BUILD_DIR", DEFAULT_FRONTEND_BUILD)
@@ -236,6 +263,10 @@ def create_app(
     @app.post("/api/archive-released-versions", tags=["archive-released-versions"])
     async def archive_versions(request: ArchiveRequest) -> StreamingResponse:
         try:
+            if request.archive_by == "versions":
+                return _log_response(named_version_archiver(
+                    request.project_key, request.is_dry_run, request.version_names,
+                ))
             return _log_response(
                 released_version_archiver(
                     request.project_key, request.is_dry_run, request.archive_until
@@ -264,6 +295,16 @@ def create_app(
             ) from None
         except Exception as error:
             log.exception("Unable to preview archived versions")
+            raise HTTPException(status_code=503, detail=explain_exception(error)) from None
+
+    @app.post("/api/archive-released-versions/preview", tags=["archive-released-versions"])
+    async def preview_version_list(request: VersionListRequest) -> dict[str, int | list[str]]:
+        try:
+            return named_version_previewer(request.project_key, request.version_names)
+        except ProjectNotFoundError:
+            raise HTTPException(status_code=404, detail=f"Jira project {request.project_key} was not found") from None
+        except Exception as error:
+            log.exception("Unable to preview named versions")
             raise HTTPException(status_code=503, detail=explain_exception(error)) from None
 
     @app.post("/api/release-semantic-version", tags=["release-semantic-version"])

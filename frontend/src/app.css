@@ -360,6 +360,7 @@ form > label {
 
 input,
 select,
+textarea,
 button {
   min-height: 2.75rem;
   padding: 0.5rem 0.75rem;
@@ -378,9 +379,19 @@ input[type='date'] {
 
 input[type='email'],
 input[type='password'],
+textarea,
 select {
   background: var(--surface);
   color: var(--text);
+}
+
+.version-names {
+  width: 100%;
+  resize: vertical;
+}
+
+.version-list-preview {
+  overflow-wrap: anywhere;
 }
 
 input:hover:not(:disabled),
@@ -814,18 +825,6 @@ fieldset input {
 /* ------------------------------------------------------------------------
    Run feedback: previews, the log toolbar, and the live-run confirmation
    ------------------------------------------------------------------------ */
-.preset-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-button.button-secondary[aria-pressed='true'] {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: #fff;
-}
-
 .preview {
   min-height: 1.5rem;
   margin: 0;

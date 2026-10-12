@@ -25,8 +25,8 @@ async function errorFrom(response: Response): Promise<ApiError> {
   return new ApiError(response.status, detail);
 }
 
-export async function getJson(url: string): Promise<unknown> {
-  const response = await globalThis.fetch(url);
+export async function getJson(url: string, init?: RequestInit): Promise<unknown> {
+  const response = await (init ? globalThis.fetch(url, init) : globalThis.fetch(url));
   if (!response.ok) throw await errorFrom(response);
   return (await response.json()) as unknown;
 }

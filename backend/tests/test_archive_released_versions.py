@@ -201,3 +201,39 @@ def test_preview_reports_an_unknown_project(monkeypatch) -> None:
 
     with pytest.raises(archive_released_versions.ProjectNotFoundError):
         archive_released_versions.preview_archive("ABC", TODAY)
+
+
+def test_named_selection_ignores_dates_and_explains_exclusions():
+    selected, excluded = archive_released_versions.select_named_versions(
+        VERSIONS, ["future-released", "no-date", "old-released", "old-released", "unreleased", "already-archived", "missing"],
+    )
+    assert [item.name for item in selected] == ["future-released", "no-date", "old-released"]
+    assert excluded == {"unknown": ["missing"], "unreleased": ["unreleased"], "already_archived": ["already-archived"]}
+
+
+def test_named_archive_dry_run_and_live_only_touch_listed_released_versions(monkeypatch):
+    archived = []
+    monkeypatch.setattr(archive_released_versions, "create_jira_client", lambda: FakeJira())
+    monkeypatch.setattr(archive_released_versions, "archive_version", lambda jira, item: archived.append(item.name))
+    names = ["no-date", "future-released", "unreleased", "already-archived", "no-date"]
+    output = "".join(archive_released_versions.stream_archive_versions("IGM", True, names))
+    assert archived == []
+    assert "Found 2 version(s)" in output
+    assert "Skipping unreleased" in output and "Skipping already archived" in output
+    "".join(archive_released_versions.stream_archive_versions("IGM", False, names))
+    assert archived == ["future-released", "no-date"]
+
+
+def test_unknown_name_blocks_all_changes_even_if_other_names_are_valid(monkeypatch):
+    archived = []
+    monkeypatch.setattr(archive_released_versions, "create_jira_client", lambda: FakeJira())
+    monkeypatch.setattr(archive_released_versions, "archive_version", lambda jira, item: archived.append(item.name))
+    output = "".join(archive_released_versions.stream_archive_versions("IGM", False, ["old-released", "missing"]))
+    assert archived == []
+    assert "Unknown version names: missing" in output
+
+
+def test_named_preview_is_read_only(monkeypatch):
+    monkeypatch.setattr(archive_released_versions, "create_jira_client", lambda: FakeJira())
+    result = archive_released_versions.preview_archive_versions("IGM", ["no-date", "unreleased", "missing", "already-archived"])
+    assert result == {"count": 1, "semantic": 0, "service": 1, "eligible": ["no-date"], "unknown": ["missing"], "unreleased": ["unreleased"], "already_archived": ["already-archived"]}

@@ -28,6 +28,8 @@ def make_client(
     released_version_previewer=lambda project_key, archive_until: {"count": 0, "semantic": 0, "service": 0},
     jira_configured=lambda: True,
     release_checker=lambda deployment_plan_key: "",
+    named_version_archiver=lambda project_key, is_dry_run, names: "",
+    named_version_previewer=lambda project_key, names: {"count": 0, "semantic": 0, "service": 0, "eligible": [], "unknown": [], "unreleased": [], "already_archived": []},
 ) -> TestClient:
     client = TestClient(
         create_app(
@@ -40,6 +42,8 @@ def make_client(
             jira_configured,
             release_checker,
             auth_users={"test@example.com": TEST_PASSWORD_HASH},
+            named_version_archiver=named_version_archiver,
+            named_version_previewer=named_version_previewer,
         )
     )
     client.post("/api/auth/login", json={"username": "test@example.com", "password": "test-password"})
@@ -229,6 +233,44 @@ def test_archive_released_versions_reports_failure(tmp_path: Path) -> None:
     )
 
     assert response.status_code == 503
+
+
+def test_named_archive_forwards_only_normalized_version_names(tmp_path: Path) -> None:
+    requests = []
+
+    def archive(key, dry_run, names):
+        requests.append((key, dry_run, names))
+        return "Named archive finished"
+
+    result = make_client(tmp_path, named_version_archiver=archive).post(
+        "/api/archive-released-versions",
+        json={"project_key": "IGM", "is_dry_run": True, "archive_by": "versions", "version_names": [" alpha ", "beta", "alpha"]},
+    )
+    assert result.status_code == 200
+    assert result.text == "Named archive finished"
+    assert requests == [("IGM", True, ["alpha", "beta"])]
+
+
+def test_archive_selection_is_mutually_exclusive(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+    base = {"project_key": "IGM", "is_dry_run": True}
+    for selection in (
+        {"archive_by": "versions", "version_names": []},
+        {"archive_by": "versions", "version_names": [" "]},
+        {"archive_by": "versions", "version_names": ["alpha"], "archive_until": "2026-01-01"},
+        {"archive_by": "date", "archive_until": "2026-01-01", "version_names": ["alpha"]},
+        {"archive_by": "date"}, {"archive_by": "other"},
+    ):
+        assert client.post("/api/archive-released-versions", json={**base, **selection}).status_code == 422
+
+
+def test_named_preview_returns_eligible_and_excluded_names(tmp_path: Path) -> None:
+    expected = {"count": 1, "semantic": 0, "service": 1, "eligible": ["alpha"], "unknown": ["missing"], "unreleased": [], "already_archived": []}
+    result = make_client(tmp_path, named_version_previewer=lambda key, names: expected).post(
+        "/api/archive-released-versions/preview", json={"project_key": "IGM", "version_names": ["alpha", "missing"]},
+    )
+    assert result.status_code == 200
+    assert result.json() == expected
 
 
 def test_release_check_returns_the_script_log(tmp_path: Path) -> None:

@@ -1,6 +1,10 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { archiveReleasedVersions, getArchivePreview } from './archive-released-versions';
+import {
+  archiveReleasedVersions,
+  getArchivePreview,
+  parseVersionNames
+} from './archive-released-versions';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -46,4 +50,42 @@ test('rejects an invalid preview response', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"count":"many"}')));
 
   await expect(getArchivePreview('IGM', '2026-09-30')).rejects.toThrow('invalid');
+});
+
+test('parses pasted names, trimming whitespace and removing duplicates', () => {
+  expect(parseVersionNames(' alpha, beta ,\nalpha, , gamma ')).toEqual(['alpha', 'beta', 'gamma']);
+});
+
+test('submits named versions without an archive date', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Done')));
+  await archiveReleasedVersions('IGM', ['alpha', 'beta'], true, () => {});
+  expect(globalThis.fetch).toHaveBeenCalledWith('/api/archive-released-versions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      project_key: 'IGM',
+      archive_by: 'versions',
+      version_names: ['alpha', 'beta'],
+      is_dry_run: true
+    })
+  });
+});
+
+test('previews names and validates exclusion lists', async () => {
+  const preview = {
+    count: 1,
+    semantic: 0,
+    service: 1,
+    eligible: ['alpha'],
+    unknown: ['missing'],
+    unreleased: [],
+    already_archived: []
+  };
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(preview))));
+  await expect(getArchivePreview('IGM', ['alpha', 'missing'])).resolves.toEqual(preview);
+  expect(globalThis.fetch).toHaveBeenCalledWith('/api/archive-released-versions/preview', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project_key: 'IGM', version_names: ['alpha', 'missing'] })
+  });
 });

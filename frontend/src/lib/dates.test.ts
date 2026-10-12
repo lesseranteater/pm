@@ -2,7 +2,6 @@ import { expect, test } from 'vitest';
 
 import {
   addDays,
-  endOfLastMonth,
   formatDateInputValue,
   toDateInputValue,
   toFileStamp
@@ -25,12 +24,6 @@ test('formats a date input value for display', () => {
   expect(formatDateInputValue('')).toBe('');
   expect(formatDateInputValue('2026-02-31')).toBe('');
   expect(formatDateInputValue('not-a-date')).toBe('');
-});
-
-test('finds the last day of the previous month', () => {
-  expect(toDateInputValue(endOfLastMonth(new Date(2026, 9, 8)))).toBe('2026-09-30');
-  expect(toDateInputValue(endOfLastMonth(new Date(2026, 2, 31)))).toBe('2026-02-28');
-  expect(toDateInputValue(endOfLastMonth(new Date(2026, 0, 15)))).toBe('2025-12-31');
 });
 
 test('builds a file-name-safe timestamp', () => {

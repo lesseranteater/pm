@@ -63,9 +63,18 @@ yesterday, and future dates are rejected). It does nothing until you click
 **Archive Versions**. Dry Run defaults to **Yes**, which only lists the versions it
 would archive; choosing **No** archives them in Jira. The page shows how many
 versions match the chosen date before anything runs
-(`GET /api/archive-released-versions/preview`), and offers quick dates such as
-"End of last month". The same logic is available from the command line in
+(`GET /api/archive-released-versions/preview`). Choose the cutoff date using the
+date field. The same logic is available from the command line in
 `tools/archive_released_versions_in_the_past.py`.
+
+Choose **Archive By → Version list** to paste exact Jira version names separated
+by commas. This mode ignores release dates; date mode ignores the saved list.
+Whitespace and duplicate names are removed. The preview lists eligible, unknown,
+unreleased and already archived versions. Correct unknown names before running;
+unreleased and already archived versions are skipped. Changing the method or its
+input requires a fresh dry run before a live run. List preview uses
+`POST /api/archive-released-versions/preview`; archiving uses the existing archive
+endpoint with `archive_by: "versions"` and `version_names`, without `archive_until`.
 
 The script endpoints (`/api/service-versions`, `/api/release-semantic-version` and
 `/api/archive-released-versions`) respond with the log as streamed plain text. The
