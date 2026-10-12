@@ -1,13 +1,12 @@
 import logging
-import os
 import re
 from threading import Lock
 from typing import Iterator
 
-from dotenv import load_dotenv
 from jira import JIRA
 
 from .script_runner import stream_script_log
+from .jira_credentials import create_jira_client as _jira_client
 
 RELEASABLE_SUBTASK_TYPES = {"Sub-task", "Sub-bug"}
 PARENT_ISSUE_TYPES = {"Story", "Enabler", "Bug", "Config Change"}
@@ -25,14 +24,6 @@ log.setLevel(logging.INFO)
 log.propagate = False
 
 report_lock = Lock()
-
-
-def _jira_client() -> JIRA:
-    load_dotenv()
-    token = os.getenv("JIRA_TOKEN", "")
-    if not token:
-        raise RuntimeError("JIRA_TOKEN environment variable is not configured")
-    return JIRA(server=os.getenv("JIRA_URL", "https://jira.egt-digital.com"), token_auth=token)
 
 
 def is_semantic_release_version(name: str) -> bool:

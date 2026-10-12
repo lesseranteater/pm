@@ -30,7 +30,7 @@ def test_login_cookie_refresh_and_logout():
     cookie = result.headers["set-cookie"]
     assert "HttpOnly" in cookie and "SameSite=lax" in cookie and "Max-Age=604800" in cookie
     assert result.headers["cache-control"] == "no-store"
-    assert connection.get("/api/auth/me").json() == {"username": "alice@example.com"}
+    assert connection.get("/api/auth/me").json() == {"username": "alice@example.com", "jira_configured": False}
     token = connection.cookies.get("pm_session")
     assert connection.post("/api/auth/logout").status_code == 200
     connection.cookies.set("pm_session", token)

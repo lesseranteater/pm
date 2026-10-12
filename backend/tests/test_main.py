@@ -43,6 +43,7 @@ def make_client(
         )
     )
     client.post("/api/auth/login", json={"username": "test@example.com", "password": "test-password"})
+    client.post("/api/auth/jira-token", json={"token": "test-jira-token"})
     return client
 
 
@@ -343,7 +344,7 @@ def test_archive_preview_reports_unknown_projects_and_failures(tmp_path: Path) -
         url, params=params
     )
     assert failed.status_code == 503
-    assert "JIRA_TOKEN" in failed.json()["detail"]
+    assert "Enter your Jira token" in failed.json()["detail"]
 
 
 def test_semantic_versions_failures_explain_the_cause(tmp_path: Path) -> None:

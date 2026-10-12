@@ -9,10 +9,11 @@ from typing import Callable, Iterable, Literal
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from starlette.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator
 
 from .archive_released_versions import preview_archive, stream_archive_released_versions
 from .auth import Authentication, SESSION_COOKIE, SESSION_TTL, configured_users
+from .jira_credentials import JIRA_TOKEN_COOKIE, jira_token
 from .errors import ProjectNotFoundError, explain_exception
 from .main_paths import PROJECT_ROOT
 from .release_check import stream_release_check
@@ -39,6 +40,17 @@ ScriptLog = str | Iterable[str]
 class LoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=254)
     password: str = Field(min_length=1, max_length=256)
+
+
+class JiraTokenRequest(BaseModel):
+    token: SecretStr = Field(min_length=1, max_length=2048)
+
+    @field_validator("token")
+    @classmethod
+    def validate_token(cls, value: SecretStr) -> SecretStr:
+        if any(ord(character) < 33 or ord(character) > 126 for character in value.get_secret_value()):
+            raise ValueError("Token must contain printable characters without spaces")
+        return value
 
 
 class ServiceVersionRequest(BaseModel):
@@ -123,6 +135,8 @@ def create_app(
 
     @app.middleware("http")
     async def authenticate_api(request: Request, call_next):
+        user = authentication.user(request.cookies.get(SESSION_COOKIE))
+        token = request.cookies.get(JIRA_TOKEN_COOKIE, "") if user else ""
         if request.url.path.startswith("/api/"):
             if request.method not in {"GET", "HEAD", "OPTIONS"}:
                 origin = request.headers.get("origin")
@@ -130,12 +144,21 @@ def create_app(
                     return JSONResponse(status_code=403, content={"detail": "Cross-origin request rejected"})
             public = {"/api/health", "/api/auth/login", "/api/auth/logout"}
             if request.url.path not in public:
-                if not authentication.user(request.cookies.get(SESSION_COOKIE)):
+                if not user:
                     return JSONResponse(
                         status_code=401, content={"detail": "Not authenticated"},
                         headers={"Cache-Control": "no-store"},
                     )
-        response = await call_next(request)
+                if not request.url.path.startswith("/api/auth/") and not token:
+                    return JSONResponse(
+                        status_code=428, content={"detail": "Enter your Jira token to use this tool"},
+                        headers={"Cache-Control": "no-store"},
+                    )
+        context_token = jira_token.set(token)
+        try:
+            response = await call_next(request)
+        finally:
+            jira_token.reset(context_token)
         if request.url.path.startswith("/api/auth/"):
             response.headers["Cache-Control"] = "no-store"
         return response
@@ -152,19 +175,29 @@ def create_app(
             SESSION_COOKIE, authentication.create_session(username), max_age=SESSION_TTL,
             httponly=True, secure=secure_cookie, samesite="lax", path="/",
         )
+        response.delete_cookie(JIRA_TOKEN_COOKIE, path="/", httponly=True, secure=secure_cookie, samesite="lax")
         return {"username": username}
 
     @app.get("/api/auth/me", tags=["auth"])
-    async def current_user(request: Request) -> dict[str, str]:
+    async def current_user(request: Request) -> dict[str, str | bool]:
         username = authentication.user(request.cookies.get(SESSION_COOKIE))
         if username is None:
             raise HTTPException(status_code=401, detail="Not authenticated")
-        return {"username": username}
+        return {"username": username, "jira_configured": bool(request.cookies.get(JIRA_TOKEN_COOKIE))}
+
+    @app.post("/api/auth/jira-token", tags=["auth"])
+    async def save_jira_token(credentials: JiraTokenRequest, response: Response) -> dict[str, bool]:
+        response.set_cookie(
+            JIRA_TOKEN_COOKIE, credentials.token.get_secret_value(),
+            httponly=True, secure=secure_cookie, samesite="lax", path="/",
+        )
+        return {"jira_configured": True}
 
     @app.post("/api/auth/logout", tags=["auth"])
     async def logout(request: Request, response: Response) -> dict[str, bool]:
         authentication.logout(request.cookies.get(SESSION_COOKIE))
         response.delete_cookie(SESSION_COOKIE, httponly=True, secure=secure_cookie, samesite="lax", path="/")
+        response.delete_cookie(JIRA_TOKEN_COOKIE, httponly=True, secure=secure_cookie, samesite="lax", path="/")
         return {"logged_out": True}
 
     @app.get("/api/health", tags=["system"])

@@ -824,6 +824,14 @@ label.log-filter {
   background: rgb(35 33 35 / 60%);
 }
 
+.jira-token-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+}
+
 .confirm-dialog h2 {
   margin: 0 0 0.75rem;
   color: var(--heading);

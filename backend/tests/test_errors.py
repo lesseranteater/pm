@@ -17,7 +17,7 @@ from backend.app.errors import ProjectNotFoundError, explain_exception
         (JIRAError(status_code=None, text="no response"), "Could not reach Jira"),
         (RequestsConnectionError("boom"), "Could not reach Jira"),
         (Timeout("slow"), "Could not reach Jira"),
-        (RuntimeError("JIRA_TOKEN environment variable is not configured"), "Add JIRA_TOKEN"),
+        (RuntimeError("JIRA_TOKEN environment variable is not configured"), "Enter your Jira token"),
         (ProjectNotFoundError("Jira project 'ABC' was not found."), "Jira project 'ABC' was not found."),
         (ValueError("anything"), "Unexpected error (ValueError)"),
     ],

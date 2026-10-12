@@ -4,6 +4,7 @@
   import { page } from '$app/state';
   import { tools, type ToolRoute } from '$lib/tools';
   import { onMount } from 'svelte';
+  import JiraTokenDialog from '$lib/JiraTokenDialog.svelte';
   import '../app.css';
 
   // Follows the URL, so the back and forward buttons keep the dropdown in sync.
@@ -18,18 +19,28 @@
   let signedInUsername = $state('');
   let authError = $state('');
   let pending = $state(false);
+  let jiraConfigured = $state(false);
+
+  function jiraTokenRequired() {
+    jiraConfigured = false;
+  }
 
   function sessionExpired() {
     authStatus = 'signed-out';
     signedInUsername = '';
     password = '';
+    jiraConfigured = false;
     authError = 'Your session expired. Please sign in again.';
   }
 
   onMount(() => {
     window.addEventListener('auth-expired', sessionExpired);
+    window.addEventListener('jira-token-required', jiraTokenRequired);
     void checkSession();
-    return () => window.removeEventListener('auth-expired', sessionExpired);
+    return () => {
+      window.removeEventListener('auth-expired', sessionExpired);
+      window.removeEventListener('jira-token-required', jiraTokenRequired);
+    };
   });
 
   async function checkSession() {
@@ -40,9 +51,11 @@
         return;
       }
       if (!response.ok) throw new Error('Unable to check your session.');
-      const user = (await response.json()) as { username?: unknown };
+      const user = (await response.json()) as { username?: unknown; jira_configured?: unknown };
       if (typeof user.username !== 'string') throw new Error('Invalid session response.');
+      if (typeof user.jira_configured !== 'boolean') throw new Error('Invalid session response.');
       signedInUsername = user.username;
+      jiraConfigured = user.jira_configured;
       authStatus = 'signed-in';
     } catch {
       authError = 'Unable to reach the server. Please try signing in again.';
@@ -64,6 +77,7 @@
         throw new Error(typeof body.detail === 'string' ? body.detail : 'Unable to sign in.');
       }
       password = '';
+      jiraConfigured = false;
       await checkSession();
     } catch (failure) {
       authError = failure instanceof Error ? failure.message : 'Unable to sign in.';
@@ -81,6 +95,7 @@
       authStatus = 'signed-out';
       signedInUsername = '';
       password = '';
+      jiraConfigured = false;
     } catch {
       authError = 'Unable to sign out. Please try again.';
     } finally {
@@ -105,7 +120,12 @@
         </div>
         <div class="script-selector">
           <label for="script">Select a Tool</label>
-          <select id="script" value={selectedScript} onchange={loadSelectedScript}>
+          <select
+            id="script"
+            value={selectedScript}
+            onchange={loadSelectedScript}
+            disabled={!jiraConfigured}
+          >
             {#if !selectedScript}
               <option value="" disabled>Choose a tool</option>
             {/if}
@@ -157,6 +177,10 @@
     </main>
   {:else}
     {#if authError}<p class="error" role="alert">{authError}</p>{/if}
-    {@render children()}
+    {#if jiraConfigured}
+      {@render children()}
+    {:else}
+      <JiraTokenDialog onsaved={() => (jiraConfigured = true)} onsignout={signOut} />
+    {/if}
   {/if}
 </div>

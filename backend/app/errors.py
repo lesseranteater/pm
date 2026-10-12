@@ -28,8 +28,8 @@ def explain_exception(error: BaseException) -> str:
             return UNREACHABLE_MESSAGE
         if status == 401:
             return (
-                "Jira rejected the access token (HTTP 401). Check that JIRA_TOKEN in the "
-                ".env file is valid and has not expired."
+                "Jira rejected the access token (HTTP 401). Check that your Jira token "
+                "is valid and has not expired."
             )
         if status == 403:
             return "Jira denied access (HTTP 403). The token does not have permission for this action."
@@ -44,7 +44,7 @@ def explain_exception(error: BaseException) -> str:
 
     if isinstance(error, RuntimeError) and "JIRA_TOKEN" in str(error):
         return (
-            "Jira access is not configured. Add JIRA_TOKEN to the .env file and restart the server."
+            "Jira access is not configured. Enter your Jira token after signing in."
         )
 
     return f"Unexpected error ({type(error).__name__}). See the server log for details."

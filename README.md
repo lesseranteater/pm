@@ -26,10 +26,9 @@ pnpm --dir frontend build
 uv run uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Create a root `.env` file with a Jira Personal Access Token:
+Create a root `.env` file with the Jira URL and authentication users:
 
 ```text
-JIRA_TOKEN=your-token
 JIRA_URL=https://jira.egt-digital.com
 ```
 
@@ -39,8 +38,8 @@ returns to it. For the service versions report, enter a Jira project key, choose
 report. The **List Service Versions Without a Release Date** script returns its Jira
 search log in the browser, based on
 `tools/list_service_versions_without_release_date.py`. The frontend sends those
-values to `POST /api/service-versions`; the Jira token remains server-side. `GET
-/api/health` reports backend health and whether `JIRA_TOKEN` is configured; the
+values to `POST /api/service-versions`. `GET
+/api/health` reports backend health and whether your Jira token cookie is present; the
 home page shows a warning when it is not.
 
 The **Release a Deployment Version** script accepts a deployment version and a Dry
@@ -95,6 +94,14 @@ days, live only in server memory, and are invalidated by logout or a server
 restart. Run a single Uvicorn worker. Password changes require restarting the app.
 Set `COOKIE_SECURE=true` when serving over HTTPS; leave it false for local HTTP.
 The session endpoints are `/api/auth/login`, `/api/auth/me`, and `/api/auth/logout`.
+
+After signing in, enter your Jira Personal Access Token in the modal. The app
+stores it in an HTTP-only `pm_jira_token` cookie with no timed expiry; browsers may
+clear this session cookie when closed. Refreshes and tool changes reuse the token.
+Logout clears both cookies, and a new login prompts for a fresh token. Jira requests
+require both a valid login session and the token cookie. `JIRA_URL` still comes
+from `.env`; web tools never use `JIRA_TOKEN` from server configuration. Standalone
+CLI scripts retain their separate environment-based credentials.
 
 ## Frontend Development
 

@@ -9,6 +9,9 @@ export class ApiError extends Error {
 }
 
 async function errorFrom(response: Response): Promise<ApiError> {
+  if (response.status === 428 && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('jira-token-required'));
+  }
   if (response.status === 401 && typeof window !== 'undefined') {
     window.dispatchEvent(new Event('auth-expired'));
   }

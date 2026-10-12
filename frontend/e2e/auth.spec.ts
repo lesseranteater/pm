@@ -2,11 +2,14 @@ import { expect, test } from '@playwright/test';
 
 test('requires login, restores the session, and signs out', async ({ page }) => {
   let authenticated = false;
+  let jiraConfigured = false;
   await page.route('**/api/auth/me', (route) =>
     route.fulfill({
       status: authenticated ? 200 : 401,
       contentType: 'application/json',
-      body: authenticated ? '{"username":"alice@example.com"}' : '{"detail":"Not authenticated"}'
+      body: authenticated
+        ? JSON.stringify({ username: 'alice@example.com', jira_configured: jiraConfigured })
+        : '{"detail":"Not authenticated"}'
     })
   );
   await page.route('**/api/auth/login', (route) => {
@@ -22,7 +25,13 @@ test('requires login, restores the session, and signs out', async ({ page }) => 
   });
   await page.route('**/api/auth/logout', (route) => {
     authenticated = false;
+    jiraConfigured = false;
     return route.fulfill({ contentType: 'application/json', body: '{"logged_out":true}' });
+  });
+  await page.route('**/api/auth/jira-token', (route) => {
+    expect(route.request().postDataJSON()).toEqual({ token: 'personal-jira-token' });
+    jiraConfigured = true;
+    return route.fulfill({ contentType: 'application/json', body: '{"jira_configured":true}' });
   });
   await page.route('**/api/health', (route) =>
     route.fulfill({
@@ -38,8 +47,13 @@ test('requires login, restores the session, and signs out', async ({ page }) => 
   await expect(page.getByRole('alert')).toContainText('Invalid username or password');
   await page.getByLabel('Password', { exact: true }).fill('correct');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Enter your Jira token' })).toBeVisible();
+  await expect(page.getByLabel('Select a Tool')).toBeDisabled();
+  await page.getByLabel('Jira Token', { exact: true }).fill('personal-jira-token');
+  await page.getByRole('button', { name: 'Save Token' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.reload();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
@@ -47,7 +61,10 @@ test('requires login, restores the session, and signs out', async ({ page }) => 
 
 test('returns to login when a tool request loses its session', async ({ page }) => {
   await page.route('**/api/auth/me', (route) =>
-    route.fulfill({ contentType: 'application/json', body: '{"username":"alice@example.com"}' })
+    route.fulfill({
+      contentType: 'application/json',
+      body: '{"username":"alice@example.com","jira_configured":true}'
+    })
   );
   await page.route('**/api/release-check', (route) =>
     route.fulfill({
@@ -61,4 +78,34 @@ test('returns to login when a tool request loses its session', async ({ page }) 
   await page.getByRole('button', { name: 'Run Check' }).click();
   await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('Your session expired');
+});
+
+test('prompts again if the Jira cookie is missing and shows save failures', async ({ page }) => {
+  await page.route('**/api/auth/me', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: '{"username":"alice@example.com","jira_configured":true}'
+    })
+  );
+  await page.route('**/api/release-check', (route) =>
+    route.fulfill({
+      status: 428,
+      contentType: 'application/json',
+      body: '{"detail":"Enter your Jira token to use this tool"}'
+    })
+  );
+  await page.route('**/api/auth/jira-token', (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: '{"detail":"Unavailable"}'
+    })
+  );
+  await page.goto('/release-check');
+  await page.getByLabel('Deployment Plan Key').fill('IGM-123');
+  await page.getByRole('button', { name: 'Run Check' }).click();
+  await expect(page.getByRole('dialog', { name: 'Enter your Jira token' })).toBeVisible();
+  await page.getByLabel('Jira Token', { exact: true }).fill('personal-token');
+  await page.getByRole('button', { name: 'Save Token' }).click();
+  await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Unable to save');
 });

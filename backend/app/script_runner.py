@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import queue
 import threading
+from contextvars import copy_context
 from typing import Callable, Iterator
 
 from .errors import explain_exception
@@ -69,7 +70,8 @@ def stream_script_log(
             lock.release()
             chunks.put(_FINISHED)
 
-    threading.Thread(target=run, daemon=True).start()
+    context = copy_context()
+    threading.Thread(target=lambda: context.run(run), daemon=True).start()
 
     while True:
         chunk = chunks.get()

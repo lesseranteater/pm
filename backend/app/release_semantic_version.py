@@ -1,15 +1,14 @@
 import logging
-import os
 import re
 from threading import Lock
 from typing import Iterable, Iterator
 
-from dotenv import load_dotenv
 from jira import JIRA
 from jira.exceptions import JIRAError
 from jira.resources import Issue, Version
 
 from .errors import ProjectNotFoundError
+from .jira_credentials import create_jira_client, jira_token_configured
 from .script_runner import stream_script_log
 from .service_versions import is_semantic_release_version
 
@@ -111,33 +110,6 @@ release_lock = Lock()
 # ============================================================================
 # JIRA CONNECTION
 # ============================================================================
-
-
-def jira_token_configured() -> bool:
-    """Return whether a Jira token is available to the server."""
-    load_dotenv()
-    return bool(os.getenv("JIRA_TOKEN", ""))
-
-
-def create_jira_client() -> JIRA:
-    load_dotenv()
-
-    jira_url = os.getenv(
-        "JIRA_URL",
-        "https://jira.egt-digital.com",
-    )
-    jira_token = os.getenv("JIRA_TOKEN", "")
-
-    if not jira_token:
-        raise RuntimeError(
-            "JIRA_TOKEN environment variable is not configured. "
-            "Create a .env file and add your Jira Personal Access Token."
-        )
-
-    return JIRA(
-        server=jira_url,
-        token_auth=jira_token,
-    )
 
 
 # ============================================================================

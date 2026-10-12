@@ -10,30 +10,20 @@ from jira.exceptions import JIRAError
 from jira.resources import Issue
 
 
-load_dotenv()
-
-JIRA_URL = os.getenv(
-    "JIRA_URL",
-    "https://jira.egt-digital.com",
-)
-
-TOKEN = os.getenv("JIRA_TOKEN", "")
-
-
 # ============================================================
 # JIRA CONNECTION
 # ============================================================
 
-if not TOKEN:
-    raise RuntimeError(
-        "JIRA_TOKEN environment variable is not configured. "
-        "Create a .env file and add your Jira Personal Access Token."
+def create_cli_jira_client() -> JIRA:
+    """Standalone CLI credentials; web callers supply their own Jira client."""
+    load_dotenv()
+    token = os.getenv("JIRA_TOKEN", "")
+    if not token:
+        raise RuntimeError("JIRA_TOKEN environment variable is not configured.")
+    return JIRA(
+        server=os.getenv("JIRA_URL", "https://jira.egt-digital.com"),
+        token_auth=token,
     )
-
-jira = JIRA(
-    server=JIRA_URL,
-    token_auth=TOKEN,
-)
 
 
 # ============================================================
@@ -302,7 +292,7 @@ def main() -> int:
             return 1
 
         find_mismatching_version_sources(
-            jira_client=jira,
+            jira_client=create_cli_jira_client(),
             release_plan_key=release_plan_key,
         )
         return 0

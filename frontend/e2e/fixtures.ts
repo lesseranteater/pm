@@ -3,7 +3,10 @@ import { test as base, expect } from '@playwright/test';
 export const test = base.extend({
   page: async ({ page }, use) => {
     await page.route('**/api/auth/me', (route) =>
-      route.fulfill({ contentType: 'application/json', body: '{"username":"test@example.com"}' })
+      route.fulfill({
+        contentType: 'application/json',
+        body: '{"username":"test@example.com","jira_configured":true}'
+      })
     );
     await use(page);
   }

@@ -36,7 +36,7 @@ test('warns on the home page when Jira access is not configured', async ({ page 
   await page.goto('/');
 
   await expect(page.getByRole('alert')).toContainText('Jira access is not configured');
-  await expect(page.getByRole('alert')).toContainText('JIRA_TOKEN');
+  await expect(page.getByRole('alert')).toContainText('enter your Jira token');
 });
 
 test('shows no warning on the home page when Jira access is configured', async ({ page }) => {

@@ -12,6 +12,7 @@ from typing import Iterator
 
 from .main_paths import PROJECT_ROOT
 from .script_runner import stream_script_log
+from .jira_credentials import create_jira_client
 
 log = logging.getLogger("release-check")
 log.setLevel(logging.INFO)
@@ -34,7 +35,7 @@ def _release_check(deployment_plan_key: str) -> None:
     script = _load_script()
     output = io.StringIO()
     with redirect_stdout(output):
-        script.find_mismatching_version_sources(script.jira, deployment_plan_key)
+        script.find_mismatching_version_sources(create_jira_client(), deployment_plan_key)
 
     for line in output.getvalue().splitlines():
         log.info("%s", line)

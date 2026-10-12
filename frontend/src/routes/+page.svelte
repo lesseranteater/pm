@@ -29,8 +29,8 @@
     <h1 id="page-title">Release Management Tools</h1>
     {#if !jiraConfigured}
       <p class="error" role="alert">
-        Jira access is not configured, so the tools cannot reach Jira. Add JIRA_TOKEN to the .env
-        file in the project folder and restart the server.
+        Jira access is not configured, so the tools cannot reach Jira. Sign out and sign in again to
+        enter your Jira token.
       </p>
     {/if}
     <p class="lead">
@@ -75,7 +75,7 @@
       Tools that change Jira start with <strong>Dry Run</strong> turned on, which only lists what would
       happen. A live run is only available after a dry run with the same settings finishes without errors,
       and you confirm it before it starts. Nothing runs until you click the button, and the Jira token
-      never leaves the server.
+      is kept in an HTTP-only cookie and is not included in the script log.
     </p>
   </section>
 </main>
