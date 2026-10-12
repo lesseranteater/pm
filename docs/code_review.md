@@ -2,7 +2,7 @@
 
 - **Date:** 2026-10-12
 - **Branch:** `barebones` (includes uncommitted auth work: `backend/app/auth.py`, `main.py`, `frontend/src/routes/+layout.svelte`, related tests)
-- **Scope:** FastAPI backend (`backend/app`), SvelteKit frontend (`frontend/src`), `tools/`, Dockerfile and start scripts.
+- **Scope:** FastAPI backend (`backend/app`), SvelteKit frontend (`frontend/src`), the former standalone scripts, Dockerfile and start scripts.
 - **Method:** Manual read of the backend, the auth and streaming paths, and the frontend layout and API helpers. I read about two thirds of `release_semantic_version.py` (1,154 lines) in detail and did not trace its Jira business rules line by line. I did not read the Svelte route pages or the e2e specs, and I did not run the Playwright e2e tests.
 
 ## Verification
@@ -112,14 +112,16 @@ Findings are ordered by severity. Each has an ID so it can be referenced in foll
   - Document that a started run completes even if the client leaves, and log that fact.
 - **Effort:** Medium.
 
-### C3. Release Check redirects `sys.stdout` process-wide and does not stream — Medium
+### C3. Release Check redirects `sys.stdout` process-wide and does not stream — Resolved
 
-- **Where:** [release_check.py:33-40](../backend/app/release_check.py#L33-L40)
+- **Where:** [release_check.py](../backend/app/release_check.py) (prior implementation).
 - **Problem:**
   - `contextlib.redirect_stdout` swaps `sys.stdout` for the whole process, not just the worker thread. Any other thread that prints during the run (another tool, a library, uvicorn) has its output swallowed into the report, and the reverse can happen too.
   - The report is only sent to the log after the script finishes, so the user sees nothing until the end. The other tools stream line by line.
   - The script module is re-executed from disk on every call (`exec_module`), so a failure to import shows up only at run time.
-- **Recommendation:** Change `tools/release_check.py` so its functions log through a logger or accept an output callback, as the other tools do, and drop the redirect. If the redirect must stay, hold a lock around it and document that it is process-global.
+- **Resolution:** Release Check now lives entirely in `backend/app/release_check.py`.
+  It writes directly to the streaming logger; dynamic file loading and process-wide
+  stdout redirection were removed. The problems above describe the prior implementation.
 - **Effort:** Medium.
 
 ### C4. Archive error handling and private client internals — Low

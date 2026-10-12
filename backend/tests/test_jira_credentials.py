@@ -116,7 +116,6 @@ def test_no_environment_fallback_for_direct_client(monkeypatch):
 
 
 def test_release_check_import_does_not_create_an_environment_client(monkeypatch):
-    import jira
-    monkeypatch.setattr(jira, "JIRA", lambda **kwargs: pytest.fail("Import must not connect to Jira"))
-    script = release_check._load_script()
-    assert callable(script.find_mismatching_version_sources)
+    import importlib
+    monkeypatch.setattr(jira_credentials, "JIRA", lambda **kwargs: pytest.fail("Import must not connect to Jira"))
+    assert callable(importlib.reload(release_check).find_mismatching_version_sources)

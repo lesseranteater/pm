@@ -36,8 +36,8 @@ JIRA_URL=https://jira.egt-digital.com
 Tools home page, which explains the tools and links to each one; the logo always
 returns to it. For the service versions report, enter a Jira project key, choose a release version status and a deployment version, then load the
 report. The **List Service Versions Without a Release Date** script returns its Jira
-search log in the browser, based on
-`tools/list_service_versions_without_release_date.py`. The frontend sends those
+search log in the browser, implemented in
+`backend/app/service_versions.py`. The frontend sends those
 values to `POST /api/service-versions`. `GET
 /api/health` reports backend health and whether your Jira token cookie is present; the
 home page shows a warning when it is not.
@@ -64,8 +64,8 @@ yesterday, and future dates are rejected). It does nothing until you click
 would archive; choosing **No** archives them in Jira. The page shows how many
 versions match the chosen date before anything runs
 (`GET /api/archive-released-versions/preview`). Choose the cutoff date using the
-date field. The same logic is available from the command line in
-`tools/archive_released_versions_in_the_past.py`.
+date field. Both archive methods are implemented in
+`backend/app/archive_released_versions.py`.
 
 Choose **Archive By → Version list** to paste exact Jira version names separated
 by commas. This mode ignores release dates; date mode ignores the saved list.
@@ -76,8 +76,13 @@ input requires a fresh dry run before a live run. List preview uses
 `POST /api/archive-released-versions/preview`; archiving uses the existing archive
 endpoint with `archive_by: "versions"` and `version_names`, without `archive_until`.
 
-The script endpoints (`/api/service-versions`, `/api/release-semantic-version` and
-`/api/archive-released-versions`) respond with the log as streamed plain text. The
+The **Release Check** tool checks Fix Versions on the Deployment Plan's linked
+issues, their parents and direct subtasks. Its read-only implementation lives in
+`backend/app/release_check.py` and streams its Script Log directly from the backend.
+All Jira tool implementations live in `backend/app/`.
+
+The script endpoints (`/api/service-versions`, `/api/release-semantic-version`,
+`/api/release-check` and `/api/archive-released-versions`) respond with the log as streamed plain text. The
 old page addresses `/service-versions`, `/release-semantic-version` and
 `/release-a-semantic-version` redirect to the current ones.
 
@@ -109,8 +114,7 @@ stores it in an HTTP-only `pm_jira_token` cookie with no timed expiry; browsers 
 clear this session cookie when closed. Refreshes and tool changes reuse the token.
 Logout clears both cookies, and a new login prompts for a fresh token. Jira requests
 require both a valid login session and the token cookie. `JIRA_URL` still comes
-from `.env`; web tools never use `JIRA_TOKEN` from server configuration. Standalone
-CLI scripts retain their separate environment-based credentials.
+from `.env`; web tools never use `JIRA_TOKEN` from server configuration.
 
 ## Frontend Development
 
@@ -151,12 +155,13 @@ build stage and runs FastAPI in the final Python image.
 - `frontend/`: SvelteKit application and frontend tests.
 - `backend/`: FastAPI application and backend tests.
 - `scripts/`: cross-platform start and stop scripts.
+- `utils/`: manual password-hashing utility, separate from the application runtime.
 - `Dockerfile`: combined frontend build and FastAPI runtime image.
 
-## Generate a password
+## Generate a password hash
 
 Run the script below in PowerShell or Command Prompt
 
 ```
-& "C:\Dev\Projects\pm\.venv\Scripts\python.exe" "C:\Dev\Projects\pm\tools\password-hasher.py"
+& "C:\Dev\Projects\pm\.venv\Scripts\python.exe" "C:\Dev\Projects\pm\utils\password-hasher.py"
 ```

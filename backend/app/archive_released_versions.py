@@ -1,8 +1,4 @@
-"""Archive Jira versions that were released in the past.
-
-Web-service port of ``tools/archive_released_versions_in_the_past.py``. The workflow
-writes to a request-scoped logger and returns the captured log to the caller.
-"""
+"""Archive released Jira versions by date or name, streaming the operational log."""
 
 from __future__ import annotations
 
