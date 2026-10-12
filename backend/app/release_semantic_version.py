@@ -1,16 +1,15 @@
 import logging
-import re
 from threading import Lock
-from typing import Iterable, Iterator
+from typing import Iterator
 
 from jira import JIRA
 from jira.exceptions import JIRAError
 from jira.resources import Issue, Version
 
 from .errors import ProjectNotFoundError, UserFacingError, explain_exception
-from .jira_credentials import create_jira_client, jira_token_configured
+from .jira_credentials import create_jira_client
 from .script_runner import stream_script_log
-from .service_versions import is_semantic_release_version
+from .service_versions import PARENT_ISSUE_TYPES, RELEASABLE_SUBTASK_TYPES, is_semantic_release_version
 
 # ============================================================================
 # CONFIGURATION
@@ -20,18 +19,6 @@ PROJECT_KEY = "IGM"
 
 RELEASE_STATE_FIELD_ID = 14889
 RELEASE_STATE_FIELD = f"customfield_{RELEASE_STATE_FIELD_ID}"
-
-PARENT_ISSUE_TYPES = {
-    "Story",
-    "Enabler",
-    "Bug",
-    "Config Change",
-}
-
-RELEASABLE_SUBTASK_TYPES = {
-    "Sub-task",
-    "Sub-bug",
-}
 
 DONE_STATUS = "Done"
 
@@ -74,27 +61,7 @@ TERMINAL_DEPLOYMENT_PLAN_STATUS_NAMES = {status.casefold() for status in TERMINA
 # ============================================================================
 # SEMANTIC VERSION CLASSIFICATION
 # ============================================================================
-
-SEMANTIC_VERSION_PATTERN = re.compile(
-    r"^(?:UNKNOWN|(Deploy|Hotfix|Config)\."
-    r"(ai-data|"
-    r"core-dev-1|"
-    r"core-dev-2|"
-    r"core-dev-3|"
-    r"core-dev-3-Payments|"
-    r"core-dev-3-Sport|"
-    r"cust-onb-1|"
-    r"cust-onb-2|"
-    r"cust-onb-2-Integrations|"
-    r"cust-onb-2-Reporting|"
-    r"ps-dev-1|"
-    r"ps-dev-2|"
-    r"prod-care|"
-    r"fe-dev|"
-    r"sw-arch)"
-    r"\.\d{2}\.[1-4]\.\d+(\.\d+)?)$",
-    re.IGNORECASE,
-)
+# The naming pattern lives in service_versions.is_semantic_release_version.
 
 
 # ============================================================================
@@ -129,7 +96,7 @@ def is_semantic_version(version: Version) -> bool:
     if not name:
         return False
 
-    return name.casefold() != "unknown" and bool(SEMANTIC_VERSION_PATTERN.fullmatch(name))
+    return is_semantic_release_version(name)
 
 
 def is_parent_semantic_version(version: Version) -> bool:
@@ -203,23 +170,20 @@ def search_all_issues(
 
     results: list[Issue] = []
 
-    start_at = 0
-    page_size = 100
-
     while True:
         page = jira.search_issues(
             jql,
-            startAt=start_at,
-            maxResults=page_size,
+            startAt=len(results),
+            maxResults=100,
             fields=fields,
         )
 
         results.extend(page)
 
-        if len(page) < page_size:
+        # Jira may return fewer issues per page than requested, so a short page is not the end.
+        total = getattr(page, "total", None)
+        if not page or (total is not None and len(results) >= total):
             break
-
-        start_at += len(page)
 
     return results
 
@@ -436,16 +400,28 @@ def get_all_subtasks(
     return [get_full_subtask(jira, reference) for reference in subtask_references]
 
 
+def load_subtasks_by_parent(jira: JIRA, parent_issues: list[Issue]) -> dict[str, list[Issue]]:
+    """Load every parent's sub-tasks once, so several checks can share the Jira calls."""
+
+    return {parent_issue.key: get_all_subtasks(jira, parent_issue) for parent_issue in parent_issues}
+
+
 def find_unreleased_service_version_blockers(
     jira: JIRA,
     parent_issues: list[Issue],
+    subtasks_by_parent: dict[str, list[Issue]] | None = None,
 ) -> list[tuple[str, str, list[str]]]:
     """Return sub-tasks with unreleased service versions that block a parent semantic release."""
 
     blockers: list[tuple[str, str, list[str]]] = []
 
     for parent_issue in parent_issues:
-        for subtask in get_all_subtasks(jira, parent_issue):
+        subtasks = (
+            subtasks_by_parent[parent_issue.key]
+            if subtasks_by_parent is not None
+            else get_all_subtasks(jira, parent_issue)
+        )
+        for subtask in subtasks:
             if subtask.fields.issuetype.name not in RELEASABLE_SUBTASK_TYPES:
                 continue
 
@@ -464,6 +440,7 @@ def find_not_done_target_version_blockers(
     jira: JIRA,
     parent_issues: list[Issue],
     target_version: Version,
+    subtasks_by_parent: dict[str, list[Issue]] | None = None,
 ) -> list[tuple[str, str, str]]:
     """Return target-version sub-tasks that are not Done and block a release."""
 
@@ -471,7 +448,12 @@ def find_not_done_target_version_blockers(
     target_version_id = str(target_version.id)
 
     for parent_issue in parent_issues:
-        for subtask in get_all_subtasks(jira, parent_issue):
+        subtasks = (
+            subtasks_by_parent[parent_issue.key]
+            if subtasks_by_parent is not None
+            else get_all_subtasks(jira, parent_issue)
+        )
+        for subtask in subtasks:
             if subtask.fields.issuetype.name not in RELEASABLE_SUBTASK_TYPES:
                 continue
 
@@ -525,6 +507,7 @@ def add_partial_release_comment(
     """Explain why the calculated Release State is Partially Released."""
 
     reasons: list[str] = []
+    service_version_is_optional = parent_issue.fields.issuetype.name == "Config Change"
 
     for subtask in releasable_subtasks:
         if subtask.fields.status.name != DONE_STATUS:
@@ -550,7 +533,7 @@ def add_partial_release_comment(
             reasons.append(
                 f"{subtask.key} has unreleased semantic Fix Version(s): {', '.join(unreleased_semantic_versions)}"
             )
-        if not has_released_service_version(subtask):
+        if not service_version_is_optional and not has_released_service_version(subtask):
             reasons.append(f"{subtask.key} has no released service Fix Version")
 
     for subtask in all_subtasks:
@@ -953,7 +936,7 @@ def _release_version(jira: JIRA, version_name: str, is_dry_run: bool) -> None:
     # VALIDATE VERSION NAME
     # ========================================================================
 
-    if not SEMANTIC_VERSION_PATTERN.fullmatch(version_name):
+    if not is_semantic_release_version(version_name):
         raise UserFacingError(f"'{version_name}' is not a valid semantic release version.")
 
     if is_dry_run:
@@ -1069,7 +1052,12 @@ def _release_version(jira: JIRA, version_name: str, is_dry_run: bool) -> None:
                 )
             return
 
-        not_done_blockers = find_not_done_target_version_blockers(jira, affected_parent_issues, target_version)
+        # Both checks run before the release changes anything, so they can share one load.
+        subtasks_by_parent = load_subtasks_by_parent(jira, affected_parent_issues)
+
+        not_done_blockers = find_not_done_target_version_blockers(
+            jira, affected_parent_issues, target_version, subtasks_by_parent
+        )
 
         if not_done_blockers:
             log.error(
@@ -1085,7 +1073,9 @@ def _release_version(jira: JIRA, version_name: str, is_dry_run: bool) -> None:
                 )
             return
 
-        service_version_blockers = find_unreleased_service_version_blockers(jira, affected_parent_issues)
+        service_version_blockers = find_unreleased_service_version_blockers(
+            jira, affected_parent_issues, subtasks_by_parent
+        )
 
         if service_version_blockers:
             log.error(
@@ -1147,8 +1137,3 @@ def stream_release_semantic_version(version_name: str, is_dry_run: bool) -> Iter
         lambda: _release_version(create_jira_client(), version_name, is_dry_run),
         "Release processing failed.",
     )
-
-
-def release_semantic_version(version_name: str, is_dry_run: bool) -> str:
-    """Run the Jira release workflow and return its complete operational log."""
-    return "".join(stream_release_semantic_version(version_name, is_dry_run))

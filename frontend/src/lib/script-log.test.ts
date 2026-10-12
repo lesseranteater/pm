@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { countLevels, filterLines, parseLogLines, plural } from './script-log';
+import { LogTracker, countLevels, filterLines, parseLogLines, plural } from './script-log';
 
 const log = [
   '2026-10-08 10:00:00,123 | INFO | Started',
@@ -46,4 +46,29 @@ test('pluralizes counts', () => {
   expect(plural(1, 'warning')).toBe('1 warning');
   expect(plural(2, 'warning')).toBe('2 warnings');
   expect(plural(0, 'log entry', 'log entries')).toBe('0 log entries');
+});
+
+const trackerStamp = '2026-10-08 10:00:00,000 | ';
+
+test('LogTracker matches parseLogLines and countLevels however the text is chunked', () => {
+  const text = `${trackerStamp}INFO | start
+${trackerStamp}WARNING | careful
+${trackerStamp}ERROR | broke
+  detail line
+`;
+  const tracker = new LogTracker();
+  for (let at = 0; at < text.length; at += 7) tracker.append(text.slice(at, at + 7));
+  tracker.flush();
+
+  expect(tracker.lines).toEqual(parseLogLines(text));
+  expect(tracker.counts).toEqual(countLevels(text));
+});
+
+test('LogTracker holds a partial line back until it is complete or flushed', () => {
+  const tracker = new LogTracker();
+  tracker.append(`${trackerStamp}ERROR | half`);
+  expect(tracker.counts.errors).toBe(0);
+  tracker.flush();
+  expect(tracker.counts.errors).toBe(1);
+  expect(tracker.lines).toHaveLength(1);
 });

@@ -31,11 +31,6 @@ def is_semantic_release_version(name: str) -> bool:
     return bool(SEMANTIC_VERSION_PATTERN.fullmatch(name))
 
 
-def _get_release_date(version):
-    """Return the version release date, or None when none has been configured."""
-    return getattr(version, "releaseDate", None)
-
-
 def _report(jira: JIRA, project_key: str, release_version: str) -> None:
     if not is_semantic_release_version(release_version):
         raise UserFacingError(f"'{release_version}' is not a valid semantic release version.")
@@ -73,7 +68,7 @@ def _report(jira: JIRA, project_key: str, release_version: str) -> None:
                 continue
 
             for version in subtask.fields.fixVersions or []:
-                if is_semantic_release_version(version.name) or _get_release_date(version) is not None:
+                if is_semantic_release_version(version.name) or getattr(version, "releaseDate", None) is not None:
                     continue
 
                 versions_without_release_date[str(version.id)] = {
@@ -100,8 +95,3 @@ def stream_service_versions_report(project_key: str, release_version: str) -> It
         lambda: _report(_jira_client(), project_key, release_version),
         "Service version report failed.",
     )
-
-
-def report_service_versions_without_release_date(project_key: str, release_version: str) -> str:
-    """Run the service version report and return its complete operational log."""
-    return "".join(stream_service_versions_report(project_key, release_version))

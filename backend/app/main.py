@@ -8,6 +8,8 @@ from typing import Callable, Iterable, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 
@@ -15,13 +17,12 @@ from .archive_released_versions import (
     preview_archive, stream_archive_released_versions, preview_archive_versions, stream_archive_versions,
 )
 from .auth import Authentication, SESSION_COOKIE, SESSION_TTL, configured_users
-from .jira_credentials import JIRA_TOKEN_COOKIE, jira_token
+from .jira_credentials import JIRA_TOKEN_COOKIE, jira_token, jira_token_configured
 from .errors import ProjectNotFoundError, explain_exception
 from .main_paths import PROJECT_ROOT
 from .release_check import stream_release_check
 from .release_semantic_version import (
     get_semantic_versions,
-    jira_token_configured,
     stream_release_semantic_version,
 )
 from .service_versions import is_semantic_release_version, stream_service_versions_report
@@ -119,6 +120,64 @@ class ReleaseCheckRequest(BaseModel):
     deployment_plan_key: str = Field(pattern=r"^[A-Z][A-Z0-9_]{1,9}-\d+$")
 
 
+class ApiAuthMiddleware:
+    """Authenticate `/api/` requests and expose the signed-in user's Jira token to the handlers.
+
+    A plain ASGI middleware, so streaming responses and client disconnects pass straight through,
+    and static files skip the session lookup.
+    """
+
+    PUBLIC_PATHS = {"/api/health", "/api/auth/login", "/api/auth/logout"}
+
+    def __init__(self, app: ASGIApp, authentication: Authentication) -> None:
+        self.app = app
+        self.authentication = authentication
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or not scope["path"].startswith("/api/"):
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope)
+        path = request.url.path
+        user = self.authentication.user(request.cookies.get(SESSION_COOKIE))
+        token = request.cookies.get(JIRA_TOKEN_COOKIE, "") if user else ""
+
+        rejection = self._rejection(request, path, user, token)
+        if rejection is not None:
+            await rejection(scope, receive, send)
+            return
+
+        async def send_without_caching(message: Message) -> None:
+            if message["type"] == "http.response.start" and path.startswith("/api/auth/"):
+                MutableHeaders(scope=message)["Cache-Control"] = "no-store"
+            await send(message)
+
+        context_token = jira_token.set(token)
+        try:
+            await self.app(scope, receive, send_without_caching)
+        finally:
+            jira_token.reset(context_token)
+
+    def _rejection(self, request: Request, path: str, user: str | None, token: str) -> JSONResponse | None:
+        if request.method not in {"GET", "HEAD", "OPTIONS"}:
+            origin = request.headers.get("origin")
+            if origin and origin != str(request.base_url).rstrip("/"):
+                return JSONResponse(status_code=403, content={"detail": "Cross-origin request rejected"})
+        if path in self.PUBLIC_PATHS:
+            return None
+        if not user:
+            return JSONResponse(
+                status_code=401, content={"detail": "Not authenticated"}, headers={"Cache-Control": "no-store"},
+            )
+        if not path.startswith("/api/auth/") and not token:
+            return JSONResponse(
+                status_code=428, content={"detail": "Enter your Jira token to use this tool"},
+                headers={"Cache-Control": "no-store"},
+            )
+        return None
+
+
 def _log_response(result: ScriptLog) -> StreamingResponse:
     """Stream a script log as plain text, one chunk per log line."""
     chunks = [result] if isinstance(result, str) else result
@@ -160,35 +219,7 @@ def create_app(
     app.state.authentication = authentication
     secure_cookie = os.environ.get("COOKIE_SECURE", "false").lower() in {"true", "1", "yes"}
 
-    @app.middleware("http")
-    async def authenticate_api(request: Request, call_next):
-        user = authentication.user(request.cookies.get(SESSION_COOKIE))
-        token = request.cookies.get(JIRA_TOKEN_COOKIE, "") if user else ""
-        if request.url.path.startswith("/api/"):
-            if request.method not in {"GET", "HEAD", "OPTIONS"}:
-                origin = request.headers.get("origin")
-                if origin and origin != str(request.base_url).rstrip("/"):
-                    return JSONResponse(status_code=403, content={"detail": "Cross-origin request rejected"})
-            public = {"/api/health", "/api/auth/login", "/api/auth/logout"}
-            if request.url.path not in public:
-                if not user:
-                    return JSONResponse(
-                        status_code=401, content={"detail": "Not authenticated"},
-                        headers={"Cache-Control": "no-store"},
-                    )
-                if not request.url.path.startswith("/api/auth/") and not token:
-                    return JSONResponse(
-                        status_code=428, content={"detail": "Enter your Jira token to use this tool"},
-                        headers={"Cache-Control": "no-store"},
-                    )
-        context_token = jira_token.set(token)
-        try:
-            response = await call_next(request)
-        finally:
-            jira_token.reset(context_token)
-        if request.url.path.startswith("/api/auth/"):
-            response.headers["Cache-Control"] = "no-store"
-        return response
+    app.add_middleware(ApiAuthMiddleware, authentication=authentication)
 
     @app.post("/api/auth/login", tags=["auth"])
     async def login(credentials: LoginRequest, request: Request, response: Response) -> dict[str, str]:

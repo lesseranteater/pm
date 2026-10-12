@@ -444,3 +444,16 @@ def test_a_slow_jira_preview_does_not_block_other_requests(tmp_path: Path) -> No
 
     assert health.status_code == 200
     assert elapsed < 2
+
+
+def test_static_files_skip_the_session_lookup(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+    lookups: list[str | None] = []
+    authentication = client.app.state.authentication
+    original = authentication.user
+    authentication.user = lambda token: lookups.append(token) or original(token)
+
+    assert client.get("/_app/app.js").status_code == 200
+    assert lookups == []
+    assert client.get("/api/health").status_code == 200
+    assert len(lookups) == 1

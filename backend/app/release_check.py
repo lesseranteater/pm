@@ -42,15 +42,21 @@ def get_linked_issue_keys(issue: Issue) -> list[str]:
     return sorted(keys)
 
 
-def get_parent_issue(jira: JIRA, issue: Issue) -> Issue | None:
+def get_parent_issue(jira: JIRA, issue: Issue, cache: dict[str, Issue | None] | None = None) -> Issue | None:
+    """Load an issue's parent. A cache shares one lookup between linked issues with the same parent."""
     parent = getattr(issue.fields, "parent", None)
     if parent is None:
         return None
+    if cache is not None and parent.key in cache:
+        return cache[parent.key]
     try:
-        return jira.issue(parent.key, fields="summary,issuetype,fixVersions,parent,subtasks")
+        loaded = jira.issue(parent.key, fields="summary,issuetype,fixVersions,parent,subtasks")
     except JIRAError as error:
         log.warning("Could not load parent issue %s: %s", parent.key, explain_exception(error))
-        return None
+        loaded = None
+    if cache is not None:
+        cache[parent.key] = loaded
+    return loaded
 
 
 def get_subtask_issues(jira: JIRA, issue: Issue) -> list[Issue]:
@@ -84,6 +90,7 @@ def find_mismatching_version_sources(jira: JIRA, release_plan_key: str) -> None:
     keys = get_linked_issue_keys(plan)
     log.info("Total linked issues checked: %d", len(keys))
     mismatches_found = 0
+    parents: dict[str, Issue | None] = {}
 
     for key in keys:
         try:
@@ -93,7 +100,7 @@ def find_mismatching_version_sources(jira: JIRA, release_plan_key: str) -> None:
             continue
 
         issue_versions = get_fix_version_names(issue) - expected
-        parent = get_parent_issue(jira, issue)
+        parent = get_parent_issue(jira, issue, parents)
         parent_versions = get_fix_version_names(parent) - expected
         mismatching_subtasks = []
         for subtask in get_subtask_issues(jira, issue):

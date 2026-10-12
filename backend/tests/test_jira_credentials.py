@@ -106,6 +106,7 @@ def test_clients_and_streaming_workers_use_the_request_cookie(monkeypatch):
         list(pool.map(run, [first, second]))
     assert sorted(value["token_auth"] for value in seen) == ["first-user-token", "second-user-token"]
     assert all(value["server"] == "https://jira.example.com" for value in seen)
+    assert all(value["timeout"] == jira_credentials.JIRA_TIMEOUT for value in seen)
     assert not jira_credentials.jira_token_configured()
 
 

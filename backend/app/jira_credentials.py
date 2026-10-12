@@ -9,7 +9,11 @@ from jira import JIRA
 from .errors import UserFacingError
 from .main_paths import PROJECT_ROOT
 
+load_dotenv(PROJECT_ROOT / ".env")
+
 JIRA_TOKEN_COOKIE = "pm_jira_token"
+# (connect, read) seconds. Without a timeout, a hung Jira holds the workflow lock forever.
+JIRA_TIMEOUT = (10, 120)
 jira_token: ContextVar[str] = ContextVar("jira_token", default="")
 
 
@@ -18,11 +22,11 @@ def jira_token_configured() -> bool:
 
 
 def create_jira_client() -> JIRA:
-    load_dotenv(PROJECT_ROOT / ".env")
     token = jira_token.get()
     if not token:
         raise UserFacingError("Enter your Jira token after signing in.")
     return JIRA(
         server=os.getenv("JIRA_URL", "https://jira.egt-digital.com"),
         token_auth=token,
+        timeout=JIRA_TIMEOUT,
     )

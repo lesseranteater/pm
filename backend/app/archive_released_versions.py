@@ -145,11 +145,6 @@ def stream_archive_released_versions(
     )
 
 
-def archive_released_versions(project_key: str, is_dry_run: bool, archive_until: date) -> str:
-    """Run the archive workflow and return its complete operational log."""
-    return "".join(stream_archive_released_versions(project_key, is_dry_run, archive_until))
-
-
 def preview_archive(project_key: str, archive_until: date) -> dict[str, int]:
     """Count the versions an archive run would touch, without changing anything."""
     try:

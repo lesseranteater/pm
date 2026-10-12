@@ -116,3 +116,23 @@ test('prompts again if the Jira cookie is missing and shows save failures', asyn
   await page.getByRole('button', { name: 'Save Token' }).click();
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Unable to save');
 });
+
+test('shows a plain message when the sign-in failure is not JSON', async ({ page }) => {
+  await page.route('**/api/auth/me', (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: '{"detail":"Not authenticated"}'
+    })
+  );
+  await page.route('**/api/auth/login', (route) =>
+    route.fulfill({ status: 502, contentType: 'text/html', body: '<html>Bad Gateway</html>' })
+  );
+
+  await page.goto('/');
+  await page.getByLabel('Email').fill('alice@example.com');
+  await page.getByLabel('Password').fill('correct');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  await expect(page.getByRole('alert')).toHaveText('Unable to sign in.');
+});

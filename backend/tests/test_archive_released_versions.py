@@ -121,7 +121,7 @@ def run(monkeypatch, is_dry_run: bool, jira: FakeJira, archived: list[str], fail
 
     monkeypatch.setattr(archive_released_versions, "create_jira_client", lambda: jira)
     monkeypatch.setattr(archive_released_versions, "archive_version", fake_archive)
-    return archive_released_versions.archive_released_versions("IGM", is_dry_run, TODAY)
+    return "".join(archive_released_versions.stream_archive_released_versions("IGM", is_dry_run, TODAY))
 
 
 def test_dry_run_lists_candidates_without_archiving(monkeypatch) -> None:

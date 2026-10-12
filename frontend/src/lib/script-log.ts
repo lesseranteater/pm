@@ -28,6 +28,40 @@ export function countLevels(log: string): LogCounts {
   return counts;
 }
 
+/**
+ * Parses a log as it streams in, so each chunk costs only its own lines rather than a rescan of
+ * the whole log. A line is counted once it is complete; `flush` completes a trailing partial one.
+ */
+export class LogTracker {
+  lines: LogLine[] = [];
+  counts: LogCounts = { entries: 0, warnings: 0, errors: 0 };
+  #level: string | null = null;
+  #partial = '';
+
+  append(text: string): void {
+    const parts = (this.#partial + text).split('\n');
+    this.#partial = parts.pop() ?? '';
+    for (const part of parts) this.#add(part);
+  }
+
+  flush(): void {
+    if (this.#partial === '') return;
+    this.#add(this.#partial);
+    this.#partial = '';
+  }
+
+  #add(text: string): void {
+    const level = LOG_ENTRY_START.exec(text)?.[1];
+    if (level) {
+      this.#level = level;
+      this.counts.entries += 1;
+      if (level === 'WARNING') this.counts.warnings += 1;
+      if (level === 'ERROR' || level === 'CRITICAL') this.counts.errors += 1;
+    }
+    this.lines.push({ text, level: this.#level });
+  }
+}
+
 export function isProblem(line: LogLine): boolean {
   return line.level === 'WARNING' || line.level === 'ERROR' || line.level === 'CRITICAL';
 }

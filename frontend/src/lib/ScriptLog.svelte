@@ -2,7 +2,7 @@
   import { onDestroy, tick } from 'svelte';
   import { toFileStamp } from '$lib/dates';
   import type { ScriptRun } from '$lib/run.svelte';
-  import { countLevels, filterLines, parseLogLines, plural } from '$lib/script-log';
+  import { filterLines, plural } from '$lib/script-log';
 
   type Props = {
     id: string;
@@ -26,8 +26,8 @@
   let now = $state(Date.now());
   let followOutput = true;
 
-  const counts = $derived(countLevels(run.log));
-  const allLines = $derived(parseLogLines(run.log));
+  const counts = $derived(run.counts);
+  const allLines = $derived(run.lines);
   const lines = $derived(filterLines(allLines, { search, problemsOnly }));
   const filtering = $derived(search.trim() !== '' || problemsOnly);
 

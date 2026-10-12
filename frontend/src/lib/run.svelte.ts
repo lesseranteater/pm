@@ -1,4 +1,4 @@
-import { countLevels } from '$lib/script-log';
+import { LogTracker, type LogCounts, type LogLine } from '$lib/script-log';
 import { ApiError } from '$lib/stream';
 
 export type RunStatus = 'idle' | 'running' | 'done' | 'failed';
@@ -24,6 +24,10 @@ function describeFailure(failure: unknown): string {
 /** The state of one script run, shared by the page that starts it and its log. */
 export class ScriptRun {
   log = $state('');
+  /** Parsed from `log` as it streams, so the page never rescans the whole log. */
+  lines = $state.raw<LogLine[]>([]);
+  counts = $state.raw<LogCounts>({ entries: 0, warnings: 0, errors: 0 });
+  #tracker = new LogTracker();
   status = $state<RunStatus>('idle');
   error = $state('');
   startedAt = $state(0);
@@ -38,7 +42,12 @@ export class ScriptRun {
 
   /** The run finished and its log holds no errors. Warnings are expected and allowed. */
   get succeeded(): boolean {
-    return this.status === 'done' && countLevels(this.log).errors === 0;
+    return this.status === 'done' && this.counts.errors === 0;
+  }
+
+  #publish(): void {
+    this.lines = this.#tracker.lines.slice();
+    this.counts = { ...this.#tracker.counts };
   }
 
   async start(
@@ -48,6 +57,8 @@ export class ScriptRun {
     if (this.running) return;
 
     this.log = '';
+    this.#tracker = new LogTracker();
+    this.#publish();
     this.error = '';
     this.description = options.description;
     this.signature = options.signature;
@@ -59,12 +70,16 @@ export class ScriptRun {
     try {
       await execute((text) => {
         this.log += text;
+        this.#tracker.append(text);
+        this.#publish();
       });
       this.status = 'done';
     } catch (failure) {
       this.error = describeFailure(failure);
       this.status = 'failed';
     } finally {
+      this.#tracker.flush();
+      this.#publish();
       this.finishedAt = Date.now();
     }
   }

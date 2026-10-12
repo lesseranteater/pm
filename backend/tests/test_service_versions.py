@@ -49,9 +49,9 @@ def test_report_logs_service_versions_without_release_date(monkeypatch) -> None:
     )
     monkeypatch.setattr(service_versions, "_jira_client", lambda: client)
 
-    output = service_versions.report_service_versions_without_release_date(
+    output = "".join(service_versions.stream_service_versions_report(
         "IGM", "Deploy.ai-data.26.4.1"
-    )
+    ))
 
     assert messages(output) == [
         "Searching Jira for parents assigned to 'Deploy.ai-data.26.4.1'.",
@@ -72,9 +72,9 @@ def test_report_ignores_non_releasable_subtasks_and_parents(monkeypatch) -> None
     )
     monkeypatch.setattr(service_versions, "_jira_client", lambda: client)
 
-    output = service_versions.report_service_versions_without_release_date(
+    output = "".join(service_versions.stream_service_versions_report(
         "IGM", "Deploy.ai-data.26.4.1"
-    )
+    ))
 
     assert "Service versions without release date: 0" in messages(output)
 
@@ -85,9 +85,9 @@ def test_report_logs_failures_instead_of_raising(monkeypatch) -> None:
 
     monkeypatch.setattr(service_versions, "_jira_client", no_token)
 
-    output = service_versions.report_service_versions_without_release_date(
+    output = "".join(service_versions.stream_service_versions_report(
         "IGM", "Deploy.ai-data.26.4.1"
-    )
+    ))
 
     assert "| ERROR | Service version report failed." in output
     assert "Cause: Enter your Jira token after signing in." in output
@@ -96,6 +96,6 @@ def test_report_logs_failures_instead_of_raising(monkeypatch) -> None:
 def test_report_rejects_a_non_semantic_release_version(monkeypatch) -> None:
     monkeypatch.setattr(service_versions, "_jira_client", lambda: SimpleNamespace())
 
-    output = service_versions.report_service_versions_without_release_date("IGM", "not-a-release")
+    output = "".join(service_versions.stream_service_versions_report("IGM", "not-a-release"))
 
     assert "'not-a-release' is not a valid semantic release version." in output

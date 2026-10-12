@@ -103,3 +103,15 @@ def test_log_streams_before_check_finishes_and_stdout_is_not_replaced(monkeypatc
     finally:
         finish.set()
     assert "CHECK COMPLETE" in "".join(stream)
+
+
+def test_a_parent_shared_by_several_linked_issues_is_loaded_once(monkeypatch):
+    issues = {
+        "IGM-1": issue("IGM-1", ["expected"], links=["IGM-2", "IGM-3"]),
+        "IGM-2": issue("IGM-2", ["expected"], parent="IGM-5"),
+        "IGM-3": issue("IGM-3", ["expected"], parent="IGM-5"),
+        "IGM-5": issue("IGM-5", ["extra-parent"]),
+    }
+    output, jira = run(monkeypatch, issues)
+    assert jira.requests.count("IGM-5") == 1
+    assert output.count("Parent IGM-5 mismatching version(s): extra-parent") == 2

@@ -75,7 +75,7 @@
         body: JSON.stringify({ username, password })
       });
       if (!response.ok) {
-        const body = (await response.json()) as { detail?: unknown };
+        const body = (await response.json().catch(() => ({}))) as { detail?: unknown };
         throw new Error(typeof body.detail === 'string' ? body.detail : 'Unable to sign in.');
       }
       password = '';
