@@ -18,6 +18,6 @@ if (-not (Test-Path (Join-Path $RootDir 'frontend/build/index.html'))) {
     pnpm --dir (Join-Path $RootDir 'frontend') build
 }
 
-$Process = Start-Process -FilePath 'uv' -ArgumentList @('run', 'uvicorn', 'backend.app.main:app', '--host', '127.0.0.1', '--port', $Port) -WorkingDirectory $RootDir -RedirectStandardOutput $LogFile -RedirectStandardError $ErrorLogFile -PassThru
+$Process = Start-Process -FilePath 'uv' -ArgumentList @('run', 'uvicorn', 'backend.app.main:app', '--host', '0.0.0.0', '--port', $Port) -WorkingDirectory $RootDir -RedirectStandardOutput $LogFile -RedirectStandardError $ErrorLogFile -PassThru
 $Process.Id | Set-Content $PidFile
-Write-Output "Server started at http://127.0.0.1:$Port"
+Write-Output "Server started on port $Port"
