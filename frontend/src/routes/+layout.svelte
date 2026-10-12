@@ -126,7 +126,7 @@
             disabled={!jiraConfigured}
           >
             {#if !selectedScript}
-              <option value="" disabled>Choose a tool</option>
+              <option value="" disabled></option>
             {/if}
             {#each tools as tool (tool.route)}
               <option value={tool.route}>{tool.title}</option>
