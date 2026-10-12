@@ -136,3 +136,30 @@ test('shows a plain message when the sign-in failure is not JSON', async ({ page
 
   await expect(page.getByRole('alert')).toHaveText('Unable to sign in.');
 });
+
+test('shows the lockout message when sign-in is throttled', async ({ page }) => {
+  await page.route('**/api/auth/me', (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: '{"detail":"Not authenticated"}'
+    })
+  );
+  await page.route('**/api/auth/login', (route) =>
+    route.fulfill({
+      status: 429,
+      contentType: 'application/json',
+      headers: { 'retry-after': '30' },
+      body: '{"detail":"Too many failed sign-in attempts. Try again in 30 seconds."}'
+    })
+  );
+
+  await page.goto('/');
+  await page.getByLabel('Email').fill('alice@example.com');
+  await page.getByLabel('Password').fill('wrong');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  await expect(page.getByRole('alert')).toHaveText(
+    'Too many failed sign-in attempts. Try again in 30 seconds.'
+  );
+});

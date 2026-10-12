@@ -54,6 +54,9 @@ class Authentication:
         self.sessions: dict[str, tuple[str, float]] = {}
         # username -> (consecutive failures, time of the last failure)
         self.failures: dict[str, tuple[int, float]] = {}
+        # session key -> the signed-in user's Jira token. It lives only in server memory, next to
+        # the session it belongs to, and is dropped with it (logout, expiry, restart).
+        self.jira_tokens: dict[str, str] = {}
         self.lock = Lock()
 
     def verify(self, username: str, password: str) -> bool:
@@ -103,6 +106,7 @@ class Authentication:
         with self.lock:
             now = time.time()
             self.sessions = {key: value for key, value in self.sessions.items() if value[1] > now}
+            self.jira_tokens = {key: value for key, value in self.jira_tokens.items() if key in self.sessions}
             self.sessions[self._hash(token)] = (username, now + SESSION_TTL)
         return token
 
@@ -119,9 +123,35 @@ class Authentication:
             if session and session[1] > time.time():
                 return session[0]
             self.sessions.pop(key, None)
+            self.jira_tokens.pop(key, None)
         return None
+
+    def set_jira_token(self, token: str | None, jira_token: str) -> bool:
+        """Attach a Jira token to a live session. Returns False when there is no such session."""
+        if not token:
+            return False
+        with self.lock:
+            key = self._hash(token)
+            session = self.sessions.get(key)
+            if not session or session[1] <= time.time():
+                return False
+            self.jira_tokens[key] = jira_token
+            return True
+
+    def jira_token(self, token: str | None) -> str:
+        """The Jira token saved for a session, or an empty string."""
+        if not token:
+            return ""
+        with self.lock:
+            key = self._hash(token)
+            session = self.sessions.get(key)
+            if not session or session[1] <= time.time():
+                return ""
+            return self.jira_tokens.get(key, "")
 
     def logout(self, token: str | None) -> None:
         if token:
             with self.lock:
-                self.sessions.pop(self._hash(token), None)
+                key = self._hash(token)
+                self.sessions.pop(key, None)
+                self.jira_tokens.pop(key, None)

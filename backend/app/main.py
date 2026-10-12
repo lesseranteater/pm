@@ -146,7 +146,7 @@ class ApiAuthMiddleware:
         request = Request(scope)
         path = request.url.path
         user = self.authentication.user(request.cookies.get(SESSION_COOKIE))
-        token = request.cookies.get(JIRA_TOKEN_COOKIE, "") if user else ""
+        token = self.authentication.jira_token(request.cookies.get(SESSION_COOKIE)) if user else ""
 
         rejection = self._rejection(request, path, user, token)
         if rejection is not None:
@@ -231,7 +231,7 @@ def create_app(
     build_dir = Path(
         frontend_build_dir or os.environ.get("FRONTEND_BUILD_DIR", DEFAULT_FRONTEND_BUILD)
     ).resolve()
-    app = FastAPI(title="Svelte FastAPI Starter API", version="0.1.0")
+    app = FastAPI(title="Release Management Tools API", version="0.1.0")
     authentication = Authentication(configured_users() if auth_users is None else auth_users)
     # uvicorn's logger is configured at INFO, so this shows in the server log by default.
     startup_log = logging.getLogger("uvicorn.error")
@@ -273,6 +273,7 @@ def create_app(
             SESSION_COOKIE, authentication.create_session(username), max_age=SESSION_TTL,
             httponly=True, secure=secure_cookie, samesite="lax", path="/",
         )
+        # The token used to be a cookie; clear any left in the browser by an earlier version.
         response.delete_cookie(JIRA_TOKEN_COOKIE, path="/", httponly=True, secure=secure_cookie, samesite="lax")
         return {"username": username}
 
@@ -281,14 +282,19 @@ def create_app(
         username = authentication.user(request.cookies.get(SESSION_COOKIE))
         if username is None:
             raise HTTPException(status_code=401, detail="Not authenticated")
-        return {"username": username, "jira_configured": bool(request.cookies.get(JIRA_TOKEN_COOKIE))}
+        return {
+            "username": username,
+            "jira_configured": bool(authentication.jira_token(request.cookies.get(SESSION_COOKIE))),
+        }
 
     @app.post("/api/auth/jira-token", tags=["auth"])
-    async def save_jira_token(credentials: JiraTokenRequest, response: Response) -> dict[str, bool]:
-        response.set_cookie(
-            JIRA_TOKEN_COOKIE, credentials.token.get_secret_value(),
-            httponly=True, secure=secure_cookie, samesite="lax", path="/",
-        )
+    async def save_jira_token(credentials: JiraTokenRequest, request: Request, response: Response) -> dict[str, bool]:
+        if not authentication.set_jira_token(
+            request.cookies.get(SESSION_COOKIE), credentials.token.get_secret_value()
+        ):
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        # Clear any token cookie left in the browser by an earlier version.
+        response.delete_cookie(JIRA_TOKEN_COOKIE, path="/", httponly=True, secure=secure_cookie, samesite="lax")
         return {"jira_configured": True}
 
     @app.post("/api/auth/logout", tags=["auth"])

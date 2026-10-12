@@ -19,27 +19,63 @@ def authenticated_client(app=None):
     return client
 
 
-def test_cookie_is_http_only_has_no_timed_expiry_and_is_cleared_on_logout():
+def test_token_is_kept_on_the_server_and_never_sent_to_the_browser():
     client = authenticated_client()
     result = client.post("/api/auth/jira-token", json={"token": "my-personal-token"})
     assert result.status_code == 200
     assert result.json() == {"jira_configured": True}
-    cookie = result.headers["set-cookie"]
-    assert "HttpOnly" in cookie and "SameSite=lax" in cookie
-    assert "Max-Age" not in cookie and "expires=" not in cookie.lower()
+    assert "my-personal-token" not in "".join(result.headers.get_list("set-cookie"))
+    assert "my-personal-token" not in "".join(client.cookies.values())
     assert client.get("/api/auth/me").json()["jira_configured"] is True
-    assert "my-personal-token" not in client.get("/api/auth/me").text
-    assert client.get("/api/auth/me").json()["jira_configured"] is True
+
+
+def test_token_is_dropped_with_its_session():
+    app = create_app(auth_users={"alice@example.com": HASH})
+    client = authenticated_client(app)
+    client.post("/api/auth/jira-token", json={"token": "my-personal-token"})
+    authentication = app.state.authentication
+    assert list(authentication.jira_tokens.values()) == ["my-personal-token"]
+
     client.post("/api/auth/logout")
-    assert "pm_jira_token" not in client.cookies
-    assert "pm_session" not in client.cookies
+    assert authentication.jira_tokens == {}
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_token_expires_with_the_session():
+    import time
+
+    app = create_app(auth_users={"alice@example.com": HASH})
+    client = authenticated_client(app)
+    client.post("/api/auth/jira-token", json={"token": "my-personal-token"})
+    authentication = app.state.authentication
+    for key, (username, _) in list(authentication.sessions.items()):
+        authentication.sessions[key] = (username, time.time() - 1)
+
+    assert client.get("/api/auth/me").status_code == 401
+    assert authentication.jira_tokens == {}
+
+
+def test_a_token_belongs_to_one_session_only():
+    app = create_app(auth_users={"alice@example.com": HASH})
+    first, second = authenticated_client(app), authenticated_client(app)
+    first.post("/api/auth/jira-token", json={"token": "first-token"})
+    assert first.get("/api/auth/me").json()["jira_configured"] is True
+    assert second.get("/api/auth/me").json()["jira_configured"] is False
+
+
+def test_a_legacy_token_cookie_is_ignored():
+    client = authenticated_client()
+    client.cookies.set("pm_jira_token", "old-cookie-token")
+    assert client.get("/api/auth/me").json()["jira_configured"] is False
+    assert client.post("/api/service-versions", json={
+        "project_key": "IGM", "release_version": "Deploy.ai-data.26.4.1",
+    }).status_code == 428
 
 
 def test_new_login_discards_previous_jira_token():
     client = authenticated_client()
     client.post("/api/auth/jira-token", json={"token": "old-token"})
     client.post("/api/auth/login", json={"username": "alice@example.com", "password": "password"})
-    assert "pm_jira_token" not in client.cookies
     assert client.get("/api/auth/me").json()["jira_configured"] is False
 
 
@@ -47,17 +83,6 @@ def test_new_login_discards_previous_jira_token():
 def test_invalid_cookie_tokens_are_rejected(token):
     response = authenticated_client().post("/api/auth/jira-token", json={"token": token})
     assert response.status_code == 422
-    assert "set-cookie" not in response.headers
-
-
-def test_jira_cookie_can_be_secure(monkeypatch):
-    monkeypatch.setenv("COOKIE_SECURE", "true")
-    app = create_app(auth_users={"alice@example.com": HASH})
-    client = TestClient(app, base_url="https://testserver")
-    client.post("/api/auth/login", json={"username": "alice@example.com", "password": "password"})
-    response = client.post("/api/auth/jira-token", json={"token": "personal-token"})
-    assert response.status_code == 200
-    assert "Secure" in response.headers["set-cookie"]
 
 
 def test_token_endpoint_requires_login():
