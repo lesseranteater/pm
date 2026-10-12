@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 const versionsByStatus: Record<string, string[]> = {
   unreleased: ['Deploy.ai-data.26.4.1', 'Deploy.fe-dev.26.4.3'],

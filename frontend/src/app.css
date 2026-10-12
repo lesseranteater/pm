@@ -111,6 +111,29 @@ html {
   gap: 0.75rem;
 }
 
+.header-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-left: auto;
+  max-width: 100%;
+}
+
+.auth-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+
+.auth-controls button {
+  margin-top: 0;
+}
+
 .script-selector label {
   color: #c4c2c5;
   font-size: 0.875rem;
@@ -461,6 +484,10 @@ fieldset input {
    Small screens
    ------------------------------------------------------------------------ */
 @media (max-width: 48rem) {
+  .header-controls {
+    width: 100%;
+  }
+
   .app-header-inner {
     align-items: flex-start;
     flex-direction: column;

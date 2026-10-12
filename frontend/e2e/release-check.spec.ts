@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('runs a release check and displays its Script Log', async ({ page }) => {
   await page.route('**/api/release-check', (route) => {

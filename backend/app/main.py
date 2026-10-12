@@ -6,11 +6,13 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, Iterable, Literal
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Response
+from starlette.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from .archive_released_versions import preview_archive, stream_archive_released_versions
+from .auth import Authentication, SESSION_COOKIE, SESSION_TTL, configured_users
 from .errors import ProjectNotFoundError, explain_exception
 from .main_paths import PROJECT_ROOT
 from .release_check import stream_release_check
@@ -32,6 +34,11 @@ LEGACY_PAGE_REDIRECTS = {
 }
 
 ScriptLog = str | Iterable[str]
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=254)
+    password: str = Field(min_length=1, max_length=256)
 
 
 class ServiceVersionRequest(BaseModel):
@@ -104,11 +111,61 @@ def create_app(
     released_version_previewer: Callable[[str, date], dict[str, int]] = preview_archive,
     jira_configured: Callable[[], bool] = jira_token_configured,
     release_checker: Callable[[str], ScriptLog] = stream_release_check,
+    auth_users: dict[str, str] | None = None,
 ) -> FastAPI:
     build_dir = Path(
         frontend_build_dir or os.environ.get("FRONTEND_BUILD_DIR", DEFAULT_FRONTEND_BUILD)
     ).resolve()
     app = FastAPI(title="Svelte FastAPI Starter API", version="0.1.0")
+    authentication = Authentication(configured_users() if auth_users is None else auth_users)
+    app.state.authentication = authentication
+    secure_cookie = os.environ.get("COOKIE_SECURE", "false").lower() in {"true", "1", "yes"}
+
+    @app.middleware("http")
+    async def authenticate_api(request: Request, call_next):
+        if request.url.path.startswith("/api/"):
+            if request.method not in {"GET", "HEAD", "OPTIONS"}:
+                origin = request.headers.get("origin")
+                if origin and origin != str(request.base_url).rstrip("/"):
+                    return JSONResponse(status_code=403, content={"detail": "Cross-origin request rejected"})
+            public = {"/api/health", "/api/auth/login", "/api/auth/logout"}
+            if request.url.path not in public:
+                if not authentication.user(request.cookies.get(SESSION_COOKIE)):
+                    return JSONResponse(
+                        status_code=401, content={"detail": "Not authenticated"},
+                        headers={"Cache-Control": "no-store"},
+                    )
+        response = await call_next(request)
+        if request.url.path.startswith("/api/auth/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.post("/api/auth/login", tags=["auth"])
+    async def login(credentials: LoginRequest, request: Request, response: Response) -> dict[str, str]:
+        if not authentication.users:
+            raise HTTPException(status_code=503, detail="Authentication is not configured")
+        username = credentials.username.strip().lower()
+        if not await run_in_threadpool(authentication.verify, username, credentials.password):
+            raise HTTPException(status_code=401, detail="Invalid username or password")
+        authentication.logout(request.cookies.get(SESSION_COOKIE))
+        response.set_cookie(
+            SESSION_COOKIE, authentication.create_session(username), max_age=SESSION_TTL,
+            httponly=True, secure=secure_cookie, samesite="lax", path="/",
+        )
+        return {"username": username}
+
+    @app.get("/api/auth/me", tags=["auth"])
+    async def current_user(request: Request) -> dict[str, str]:
+        username = authentication.user(request.cookies.get(SESSION_COOKIE))
+        if username is None:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        return {"username": username}
+
+    @app.post("/api/auth/logout", tags=["auth"])
+    async def logout(request: Request, response: Response) -> dict[str, bool]:
+        authentication.logout(request.cookies.get(SESSION_COOKIE))
+        response.delete_cookie(SESSION_COOKIE, httponly=True, secure=secure_cookie, samesite="lax", path="/")
+        return {"logged_out": True}
 
     @app.get("/api/health", tags=["system"])
     async def health() -> dict[str, str | bool]:

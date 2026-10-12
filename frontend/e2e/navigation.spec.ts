@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('executes the selected script route', async ({ page }) => {
   await page.route('**/api/semantic-versions*', (route) =>

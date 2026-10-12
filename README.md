@@ -83,6 +83,19 @@ combined application:
 
 On Windows PowerShell, use `./scripts/start.ps1` and `./scripts/stop.ps1`.
 
+## Authentication
+
+Configure `AUTH_USERS_JSON` in the root `.env` or inject it from Vault. It is a
+JSON array of `{"username":"email@example.com","password_hash":"<Argon2id hash>"}`
+records. `python-dotenv` accepts a multiline array enclosed in single quotes.
+Credentials are verified server-side; missing configuration disables login.
+
+All Jira API routes require the HTTP-only `pm_session` cookie. Sessions last seven
+days, live only in server memory, and are invalidated by logout or a server
+restart. Run a single Uvicorn worker. Password changes require restarting the app.
+Set `COOKIE_SECURE=true` when serving over HTTPS; leave it false for local HTTP.
+The session endpoints are `/api/auth/login`, `/api/auth/me`, and `/api/auth/logout`.
+
 ## Frontend Development
 
 Run the Svelte development server from `frontend/`:
@@ -123,3 +136,11 @@ build stage and runs FastAPI in the final Python image.
 - `backend/`: FastAPI application and backend tests.
 - `scripts/`: cross-platform start and stop scripts.
 - `Dockerfile`: combined frontend build and FastAPI runtime image.
+
+## Generate a password
+
+Run the script below in PowerShell or Command Prompt
+
+```
+& "C:\Dev\Projects\pm\.venv\Scripts\python.exe" "C:\Dev\Projects\pm\tools\password-hasher.py"
+```

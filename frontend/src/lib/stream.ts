@@ -9,6 +9,9 @@ export class ApiError extends Error {
 }
 
 async function errorFrom(response: Response): Promise<ApiError> {
+  if (response.status === 401 && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('auth-expired'));
+  }
   let detail = '';
   try {
     const body = (await response.json()) as { detail?: unknown };

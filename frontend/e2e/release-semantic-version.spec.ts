@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 const VERSIONS = ['Hotfix.core-dev-1.26.3.4', 'Hotfix.ps-dev-1.26.4.3'];
 

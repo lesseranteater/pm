@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 const DRY_LOG = [
   '2026-10-08 10:00:00,000 | INFO | Project: IGM',

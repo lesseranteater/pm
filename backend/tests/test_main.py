@@ -2,9 +2,12 @@ from datetime import date
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from argon2 import PasswordHasher
 
 from backend.app.main import create_app
 from backend.app.release_semantic_version import ProjectNotFoundError
+
+TEST_PASSWORD_HASH = PasswordHasher().hash("test-password")
 
 
 def make_frontend_build(tmp_path: Path) -> Path:
@@ -26,7 +29,7 @@ def make_client(
     jira_configured=lambda: True,
     release_checker=lambda deployment_plan_key: "",
 ) -> TestClient:
-    return TestClient(
+    client = TestClient(
         create_app(
             make_frontend_build(tmp_path),
             service_version_reporter,
@@ -36,8 +39,11 @@ def make_client(
             released_version_previewer,
             jira_configured,
             release_checker,
+            auth_users={"test@example.com": TEST_PASSWORD_HASH},
         )
     )
+    client.post("/api/auth/login", json={"username": "test@example.com", "password": "test-password"})
+    return client
 
 
 def test_health_endpoint(tmp_path: Path) -> None:
@@ -234,7 +240,6 @@ def test_release_check_returns_the_script_log(tmp_path: Path) -> None:
     response = make_client(tmp_path, release_checker=check).post(
         "/api/release-check", json={"deployment_plan_key": "IGM-123"}
     )
-
     assert response.status_code == 200
     assert response.text == "CHECK COMPLETE"
     assert requests == ["IGM-123"]
