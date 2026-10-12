@@ -5,6 +5,8 @@
   import { tools, type ToolRoute } from '$lib/tools';
   import { onMount } from 'svelte';
   import JiraTokenDialog from '$lib/JiraTokenDialog.svelte';
+  import ThemeSwitch from '$lib/ThemeSwitch.svelte';
+  import UserMenu from '$lib/UserMenu.svelte';
   import '../app.css';
 
   // Follows the URL, so the back and forward buttons keep the dropdown in sync.
@@ -114,10 +116,7 @@
     <a class="brand" href={resolve('/')}>Release Management Tools</a>
     {#if authStatus === 'signed-in'}
       <div class="header-controls">
-        <div class="auth-controls">
-          <span>{signedInUsername}</span>
-          <button type="button" disabled={pending} onclick={() => void signOut()}>Sign out</button>
-        </div>
+        <UserMenu username={signedInUsername} {pending} onsignout={signOut} />
         <div class="script-selector">
           <label for="script">Select a Tool</label>
           <select
@@ -144,6 +143,7 @@
   {:else if authStatus === 'signed-out'}
     <main>
       <section aria-labelledby="login-title">
+        <div class="login-theme"><ThemeSwitch /></div>
         <h1 id="login-title">Sign in</h1>
         <p class="intro">Sign in to access Release Management Tools.</p>
         <form

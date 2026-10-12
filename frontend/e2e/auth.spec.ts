@@ -41,6 +41,9 @@ test('requires login, restores the session, and signs out', async ({ page }) => 
   );
   await page.goto('/');
   await expect(page.getByLabel('Select a Tool')).toHaveCount(0);
+  await expect(
+    page.locator('.login-theme').getByRole('switch', { name: 'Dark theme' })
+  ).toBeVisible();
   await page.getByLabel('Email').fill('alice@example.com');
   await page.getByLabel('Password', { exact: true }).fill('wrong');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
@@ -54,9 +57,13 @@ test('requires login, restores the session, and signs out', async ({ page }) => 
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'alice@example.com' }).click();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
+  await expect(
+    page.locator('.login-theme').getByRole('switch', { name: 'Dark theme' })
+  ).toBeVisible();
 });
 
 test('returns to login when a tool request loses its session', async ({ page }) => {
