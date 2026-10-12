@@ -158,7 +158,15 @@ def test_failed_archive_is_logged_as_a_warning_and_the_run_continues(monkeypatch
 
     assert archived == ["second"]
     assert "| WARNING | Failed to archive first (id=1)" in output
-    assert "Archived 1 of 2 version(s)." in output
+    assert "| ERROR | Archived only 1 of 2 version(s)" in output
+
+
+def test_every_archive_failing_is_reported_as_an_error(monkeypatch) -> None:
+    versions = [version("only", True, False, "2026-01-01", id="1")]
+
+    output = run(monkeypatch, False, FakeJira(versions), [], fail={"only"})
+
+    assert "| ERROR | Archived only 0 of 1 version(s)" in output
 
 
 def test_nothing_to_archive_is_reported(monkeypatch) -> None:

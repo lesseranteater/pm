@@ -7,7 +7,11 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import Timeout
 
 
-class ProjectNotFoundError(RuntimeError):
+class UserFacingError(RuntimeError):
+    """A failure whose message is already safe and clear enough to show to the user."""
+
+
+class ProjectNotFoundError(UserFacingError):
     """Raised when Jira has no project with the requested key."""
 
 
@@ -19,7 +23,7 @@ def explain_exception(error: BaseException) -> str:
 
     The explanation never includes tokens, URLs with credentials, or tracebacks.
     """
-    if isinstance(error, ProjectNotFoundError):
+    if isinstance(error, UserFacingError):
         return str(error)
 
     if isinstance(error, JIRAError):
@@ -41,10 +45,5 @@ def explain_exception(error: BaseException) -> str:
 
     if isinstance(error, (RequestsConnectionError, Timeout)):
         return UNREACHABLE_MESSAGE
-
-    if isinstance(error, RuntimeError) and "JIRA_TOKEN" in str(error):
-        return (
-            "Jira access is not configured. Enter your Jira token after signing in."
-        )
 
     return f"Unexpected error ({type(error).__name__}). See the server log for details."

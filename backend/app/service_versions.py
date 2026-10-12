@@ -5,6 +5,7 @@ from typing import Iterator
 
 from jira import JIRA
 
+from .errors import UserFacingError
 from .script_runner import stream_script_log
 from .jira_credentials import create_jira_client as _jira_client
 
@@ -37,7 +38,7 @@ def _get_release_date(version):
 
 def _report(jira: JIRA, project_key: str, release_version: str) -> None:
     if not is_semantic_release_version(release_version):
-        raise RuntimeError(f"'{release_version}' is not a valid semantic release version.")
+        raise UserFacingError(f"'{release_version}' is not a valid semantic release version.")
 
     jql = f'''
         project = {project_key}

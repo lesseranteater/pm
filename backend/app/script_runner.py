@@ -10,6 +10,7 @@ from typing import Callable, Iterator
 
 from .errors import explain_exception
 
+server_log = logging.getLogger(__name__)
 LOG_FORMAT = "%(asctime)s | %(levelname)s | %(message)s"
 _FINISHED = object()
 
@@ -62,8 +63,10 @@ def stream_script_log(
             try:
                 work()
             except Exception as error:
+                # The traceback can hold URLs and Jira response bodies, so it stays in the server log.
+                server_log.exception(failure_message)
                 logger.error("Cause: %s", explain_exception(error))
-                logger.exception(failure_message)
+                logger.error(failure_message)
             finally:
                 logger.removeHandler(handler)
         finally:

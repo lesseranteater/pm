@@ -7,7 +7,7 @@ from jira import JIRA
 from jira.exceptions import JIRAError
 from jira.resources import Issue, Version
 
-from .errors import ProjectNotFoundError
+from .errors import ProjectNotFoundError, UserFacingError, explain_exception
 from .jira_credentials import create_jira_client, jira_token_configured
 from .script_runner import stream_script_log
 from .service_versions import is_semantic_release_version
@@ -101,6 +101,7 @@ SEMANTIC_VERSION_PATTERN = re.compile(
 # LOGGING
 # ============================================================================
 
+server_log = logging.getLogger(__name__)
 log = logging.getLogger("release-state")
 log.setLevel(logging.INFO)
 log.propagate = False
@@ -151,10 +152,10 @@ def find_project_version(
     matching_versions = [version for version in versions if version.name == version_name]
 
     if not matching_versions:
-        raise RuntimeError(f"Version '{version_name}' does not exist in project " f"'{project_key}'.")
+        raise UserFacingError(f"Version '{version_name}' does not exist in project " f"'{project_key}'.")
 
     if len(matching_versions) > 1:
-        raise RuntimeError(f"More than one version named '{version_name}' was found " f"in project '{project_key}'.")
+        raise UserFacingError(f"More than one version named '{version_name}' was found " f"in project '{project_key}'.")
 
     return matching_versions[0]
 
@@ -953,7 +954,7 @@ def _release_version(jira: JIRA, version_name: str, is_dry_run: bool) -> None:
     # ========================================================================
 
     if not SEMANTIC_VERSION_PATTERN.fullmatch(version_name):
-        raise RuntimeError(f"'{version_name}' is not a valid semantic release version.")
+        raise UserFacingError(f"'{version_name}' is not a valid semantic release version.")
 
     if is_dry_run:
         log.info("DRY RUN enabled: Jira updates will not be executed.")
@@ -1125,11 +1126,10 @@ def _release_version(jira: JIRA, version_name: str, is_dry_run: bool) -> None:
                 dry_run_released_version_id,
             )
 
-        except Exception:
-            log.exception(
-                "%s: FAILED.",
-                parent_issue.key,
-            )
+        except Exception as error:
+            # The traceback stays in the server log; the stream gets only the explained cause.
+            server_log.exception("%s: release state update failed", parent_issue.key)
+            log.error("%s: FAILED. %s", parent_issue.key, explain_exception(error))
 
     log.info("======================================================================")
 

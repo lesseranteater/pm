@@ -245,7 +245,7 @@ def create_app(
             ) from None
 
     @app.get("/api/semantic-versions", tags=["release-semantic-version"])
-    async def semantic_versions(
+    def semantic_versions(
         status: Literal["unreleased", "released", "archived"] = "unreleased",
         project_key: str = Query(default="IGM", pattern=r"^[A-Z][A-Z0-9_]{1,9}$"),
     ) -> list[str]:
@@ -280,7 +280,7 @@ def create_app(
             ) from None
 
     @app.get("/api/archive-released-versions/preview", tags=["archive-released-versions"])
-    async def archive_preview(
+    def archive_preview(
         archive_until: date,
         project_key: str = Query(pattern=r"^[A-Z][A-Z0-9_]{1,9}$"),
     ) -> dict[str, int]:
@@ -298,7 +298,7 @@ def create_app(
             raise HTTPException(status_code=503, detail=explain_exception(error)) from None
 
     @app.post("/api/archive-released-versions/preview", tags=["archive-released-versions"])
-    async def preview_version_list(request: VersionListRequest) -> dict[str, int | list[str]]:
+    def preview_version_list(request: VersionListRequest) -> dict[str, int | list[str]]:
         try:
             return named_version_previewer(request.project_key, request.version_names)
         except ProjectNotFoundError:

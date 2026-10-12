@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from backend.app import service_versions
+from backend.app.errors import UserFacingError
 
 
 def issue(issue_type: str, subtasks=None, fix_versions=None):
@@ -80,7 +81,7 @@ def test_report_ignores_non_releasable_subtasks_and_parents(monkeypatch) -> None
 
 def test_report_logs_failures_instead_of_raising(monkeypatch) -> None:
     def no_token():
-        raise RuntimeError("JIRA_TOKEN environment variable is not configured")
+        raise UserFacingError("Enter your Jira token after signing in.")
 
     monkeypatch.setattr(service_versions, "_jira_client", no_token)
 
@@ -89,7 +90,7 @@ def test_report_logs_failures_instead_of_raising(monkeypatch) -> None:
     )
 
     assert "| ERROR | Service version report failed." in output
-    assert "JIRA_TOKEN environment variable is not configured" in output
+    assert "Cause: Enter your Jira token after signing in." in output
 
 
 def test_report_rejects_a_non_semantic_release_version(monkeypatch) -> None:

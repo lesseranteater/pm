@@ -53,7 +53,9 @@
     >
       <label for="deployment-plan-key">Deployment Plan Key</label>
       <input id="deployment-plan-key" bind:value={deploymentPlanKey} maxlength="20" required />
-      <button type="submit" disabled={run.running}>{run.running ? 'Checking...' : 'Run Check'}</button>
+      <button type="submit" disabled={run.running}
+        >{run.running ? 'Checking...' : 'Run Check'}</button
+      >
     </form>
     {#if formError}
       <p class="error" role="alert">{formError}</p>

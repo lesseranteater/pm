@@ -1,11 +1,6 @@
 import { expect, test } from 'vitest';
 
-import {
-  addDays,
-  formatDateInputValue,
-  toDateInputValue,
-  toFileStamp
-} from './dates';
+import { addDays, formatDateInputValue, toDateInputValue, toFileStamp } from './dates';
 
 test('formats a local date as a date input value', () => {
   expect(toDateInputValue(new Date(2026, 0, 5))).toBe('2026-01-05');

@@ -1,6 +1,9 @@
 import logging
 import threading
 
+from jira.exceptions import JIRAError
+
+from backend.app.errors import UserFacingError
 from backend.app.script_runner import stream_script_log
 
 
@@ -34,14 +37,28 @@ def test_a_failure_is_explained_in_the_log_and_the_stream_ends_normally() -> Non
     logger = make_logger("test-runner-failure")
 
     def work() -> None:
-        raise RuntimeError("JIRA_TOKEN environment variable is not configured")
+        raise UserFacingError("Enter your Jira token after signing in.")
 
     output = "".join(stream_script_log(logger, threading.Lock(), work, "Run failed."))
 
-    assert "| ERROR | Cause: Jira access is not configured." in output
+    assert "| ERROR | Cause: Enter your Jira token after signing in." in output
     assert "| ERROR | Run failed." in output
-    assert "RuntimeError" in output
     assert logger.handlers == []
+
+
+def test_the_stream_never_carries_a_traceback_or_the_jira_response() -> None:
+    logger = make_logger("test-runner-no-traceback")
+
+    def work() -> None:
+        raise JIRAError(
+            status_code=500, url="https://jira.internal/rest/api/2/x", text="<html>internal body</html>"
+        )
+
+    output = "".join(stream_script_log(logger, threading.Lock(), work, "Run failed."))
+
+    assert "Jira reported a server error (HTTP 500)" in output
+    for leaked in ("Traceback", "jira.internal", "internal body", "script_runner.py"):
+        assert leaked not in output
 
 
 def test_a_second_run_says_it_is_waiting_for_the_first() -> None:

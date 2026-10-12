@@ -127,7 +127,10 @@ def _archive_candidates(jira: JIRA, candidates: list[Version], is_dry_run: bool)
         except Exception as error:
             log.warning("Failed to archive %s (id=%s): %s", version.name, version.id, error)
 
-    log.info("Archived %d of %d version(s).", archived, len(candidates))
+    if archived < len(candidates):
+        log.error("Archived only %d of %d version(s); see the warnings above.", archived, len(candidates))
+    else:
+        log.info("Archived %d of %d version(s).", archived, len(candidates))
 
 
 def stream_archive_released_versions(

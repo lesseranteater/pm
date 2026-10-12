@@ -6,6 +6,7 @@ from contextvars import ContextVar
 from dotenv import load_dotenv
 from jira import JIRA
 
+from .errors import UserFacingError
 from .main_paths import PROJECT_ROOT
 
 JIRA_TOKEN_COOKIE = "pm_jira_token"
@@ -20,7 +21,7 @@ def create_jira_client() -> JIRA:
     load_dotenv(PROJECT_ROOT / ".env")
     token = jira_token.get()
     if not token:
-        raise RuntimeError("Enter your Jira token after signing in.")
+        raise UserFacingError("Enter your Jira token after signing in.")
     return JIRA(
         server=os.getenv("JIRA_URL", "https://jira.egt-digital.com"),
         token_auth=token,

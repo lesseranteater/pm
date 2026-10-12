@@ -1,3 +1,5 @@
+import threading
+import time
 from datetime import date
 from pathlib import Path
 
@@ -5,6 +7,7 @@ from fastapi.testclient import TestClient
 from argon2 import PasswordHasher
 
 from backend.app.main import create_app
+from backend.app.errors import UserFacingError
 from backend.app.release_semantic_version import ProjectNotFoundError
 
 TEST_PASSWORD_HASH = PasswordHasher().hash("test-password")
@@ -372,7 +375,7 @@ def test_archive_preview_reports_unknown_projects_and_failures(tmp_path: Path) -
         raise ProjectNotFoundError(project_key)
 
     def rejected(project_key: str, archive_until: date) -> dict[str, int]:
-        raise RuntimeError("JIRA_TOKEN environment variable is not configured")
+        raise UserFacingError("Enter your Jira token after signing in.")
 
     params = {"project_key": "ABC", "archive_until": "2026-09-30"}
     url = "/api/archive-released-versions/preview"
@@ -416,3 +419,28 @@ def test_renamed_pages_redirect_to_their_new_addresses(tmp_path: Path) -> None:
         response = client.get(old, follow_redirects=False)
         assert response.status_code == 308, old
         assert response.headers["location"] == new, old
+
+
+def test_a_slow_jira_preview_does_not_block_other_requests(tmp_path: Path) -> None:
+    release_preview = threading.Event()
+
+    def slow_preview(project_key: str, archive_until: date) -> dict[str, int]:
+        release_preview.wait(timeout=5)
+        return {"count": 0, "semantic": 0, "service": 0}
+
+    client = make_client(tmp_path, released_version_previewer=slow_preview)
+    params = {"project_key": "ABC", "archive_until": "2026-09-30"}
+    with client:  # one shared event loop, as in production
+        preview = threading.Thread(
+            target=lambda: client.get("/api/archive-released-versions/preview", params=params)
+        )
+        preview.start()
+        time.sleep(0.3)
+        started = time.monotonic()
+        health = client.get("/api/health")
+        elapsed = time.monotonic() - started
+        release_preview.set()
+        preview.join(timeout=5)
+
+    assert health.status_code == 200
+    assert elapsed < 2
