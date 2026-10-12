@@ -6,7 +6,7 @@ Related: [improvements.md](improvements.md) holds the second review (errors, dea
 
 **Scope of the original review:** FastAPI backend, SvelteKit frontend, former standalone scripts, Dockerfile and start scripts. Not reviewed: the Svelte route pages beyond the archive page, and the e2e specs.
 
-**Current baseline:** 148 backend tests, 48 frontend unit tests and 27 e2e tests pass; `pnpm check` and `pnpm lint` are clean.
+**Current baseline:** 155 backend tests, 48 frontend unit tests and 28 e2e tests pass; `pnpm check` and `pnpm lint` are clean.
 
 **Summary of the original findings:** the app is well structured and tested, inputs are validated at the API boundary, and Argon2id with a dummy hash, hashed session tokens and HttpOnly cookies are sound. The main risks were in the authentication layer (no login throttling, secure cookies off by default, Jira token in a plain cookie) and in how long-running Jira scripts are run (lock waits, abandoned runs).
 
@@ -49,13 +49,18 @@ Recommendation recorded 2026-10-12. The app will later run behind a domain name 
 
 **Ordering rule:** nothing that depends on HTTPS may be switched on before HTTPS exists. `Secure` cookies are not sent over plain HTTP (except on `localhost`), so enabling them early breaks login. Steps marked "now" are safe over HTTP today; steps marked "at TLS" wait for the cut-over.
 
+## Dependency audit (2026-10-12)
+
+- Python (`pip-audit` on the locked runtime dependencies): no known vulnerabilities.
+- Frontend (`pnpm audit`): one low-severity advisory, `cookie` below 0.7 via `@sveltejs/kit`. The app is a static build, so that code is not shipped. Update SvelteKit when a release pulls in `cookie` 0.7 or newer.
+
 ## Status at a glance
 
 | ID | Severity | Title | Status |
 | --- | --- | --- | --- |
 | S1 | High | No rate limiting or lockout on login | Partly done (per-username; per-IP at TLS) |
 | S2 | High | Secure cookie flag is off by default | Partly done (warning and docs; flip at TLS) |
-| S3 | Medium | Jira token kept in a client-side cookie, not bound to the session | Open |
+| S3 | Medium | Jira token kept in a client-side cookie, not bound to the session | Done (no Jira verification call) |
 | S4 | Medium | CSRF check trusts a missing `Origin` header and `base_url` behind proxies | Partly done (`ALLOWED_ORIGIN`; stricter rules at TLS) |
 | C1 | Medium | `try/except` around streaming responses can never fire | Done |
 | C2 | Medium | Queued runs wait on the lock with no timeout; abandoned runs keep going | Done |
@@ -64,8 +69,8 @@ Recommendation recorded 2026-10-12. The app will later run behind a domain name 
 | C5 | Low | Unknown `/api/...` GET paths return the SPA HTML with status 200 | Done |
 | C6 | Low | `app = create_app()` runs at import time | Partly done (startup message; `--factory` skipped) |
 | M1 | Medium | Business rules and patterns are duplicated | Done |
-| M2 | Low | `release_semantic_version.py` is a very large module | Open |
-| M3 | Low | Scope has drifted from the "small starter" in `CLAUDE.md` | Open |
+| M2 | Low | `release_semantic_version.py` is a very large module | Partly done |
+| M3 | Low | Scope has drifted from the "small starter" in `CLAUDE.md` | Done (names kept) |
 | M4 | Low | Defense-in-depth gaps in JQL construction | Done |
 | O1 | Low | Lint fails | Done |
 | O2 | Low | Sessions are in memory and process-local | Done (documented) |
@@ -133,12 +138,12 @@ Recommendation recorded 2026-10-12. The app will later run behind a domain name 
   - [x] Result queue stays unbounded on purpose, documented in `stream_script_log`: a bounded queue would let a slow client block a run that holds the lock.
   - [x] Document, and log, that a started run completes even if the client leaves (stopping a release half-way is worse). A queued run whose client has left now never starts.
   - [x] Test: two concurrent callers, the waiting message, and the timeout; plus abandoned-while-queued and abandoned-mid-run.
-- [ ] **S3. Bind the Jira token to the session.** Medium, medium.
+- [x] **S3. Bind the Jira token to the session.** Medium, medium. Done, except the Jira verification call (see below).
   `save_jira_token` and `ApiAuthMiddleware` in [main.py](../backend/app/main.py), [jira_credentials.py](../backend/app/jira_credentials.py).
   Problem: the token is a raw cookie sent on every request, outlives the server-side session, and is never checked against the signed-in user.
-  - [ ] Decide: keep the token server-side in the session record and send only the session cookie (preferred), or keep the cookie and give it the session's `max_age`.
-  - [ ] Verify the token with a cheap Jira call (for example `jira.myself()`) before accepting it.
-  - [ ] Update the frontend token dialog and `/api/auth/me` accordingly, and the tests that read the cookie.
+  - [x] The token is kept server-side in `Authentication.jira_tokens`, keyed by session, and dropped on logout, expiry and restart. The `pm_jira_token` cookie is no longer set; a leftover one is ignored and cleared at sign-in.
+  - [ ] Verify the token with a cheap Jira call (for example `jira.myself()`) before accepting it. Not done on purpose: it cannot be checked without a real Jira, and a wrong rejection would lock every user out.
+  - [x] `/api/auth/me` and the middleware read the server-side token; the frontend needed no change because the API is the same. Tests rewritten, and a live HTTP check confirmed the token never appears in a cookie.
 - [x] **C3. Release Check no longer redirects `sys.stdout` and now streams.** Done earlier; see `release_check.py`.
 
 ## Phase 4: tests for the risky paths (T1)
@@ -179,15 +184,16 @@ Add each test alongside the fix it covers.
 
 ## Phase 6: structural changes, last and behavior-neutral
 
-- [ ] **M2. Split `release_semantic_version.py`.** Low, large.
+- [ ] **M2. Split `release_semantic_version.py`.** Low, large. Partly done: 1,154 lines became 908, plus `release_rules.py` (178) and `release_comments.py` (71).
   It mixes configuration, classification, Jira calls, blockers, comment writing and orchestration in one file, and `add_partial_release_comment` and `add_not_released_comment` are near-duplicates.
-  - [ ] Do this only with the existing tests as a safety net, one behavior-neutral step at a time.
-  - [ ] Split into configuration, rules (pure functions), Jira I/O and the workflow.
-  - [ ] Merge the two comment builders.
-- [ ] **M3. Update the project description.** Low, small.
+  - [x] Safety net first: `test_release_workflow_golden.py` runs four scenarios through a fake Jira and compares the full log and every Jira write with files in `backend/tests/golden/`. The refactor left them untouched.
+  - [x] Configuration and the pure rules moved to `release_rules.py`.
+  - [ ] Jira I/O and the workflow still share `release_semantic_version.py`, and `evaluate_parent` is still one long function. Splitting it further is optional.
+  - [x] The two comment builders are merged into `build_release_state_comment` in `release_comments.py`, with one poster, `add_release_state_comment`.
+- [x] **M3. Update the project description.** Low, small. Wording done; package and image rename skipped.
   `CLAUDE.md` says to keep the project a small starter, but the app now ships authentication, four Jira workflows and a token dialog. The API title is still "Svelte FastAPI Starter API" and the package is `svelte-fastapi-starter`.
-  - [ ] Update `CLAUDE.md`, the README and the AGENTS files to describe a release-management tool.
-  - [ ] Rename the API title and the package (and the Docker image name in the docs).
+  - [x] `CLAUDE.md`, `AGENTS.md`, the README, the API title, and the package docstring and description now describe a release-management tool.
+  - [ ] Rename the Python package, the Docker image name and the `.starter-server.*` file names. Skipped on purpose: it changes `uv.lock`, the build commands and the start scripts for no functional gain.
 
 ## Positive notes
 

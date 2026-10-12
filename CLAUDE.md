@@ -1,8 +1,8 @@
-# Svelte FastAPI Starter
+# Release Management Tools
 
 Read `AGENTS.md`, `frontend/AGENTS.md`, and `backend/AGENTS.md` before changing
-code. Keep the project as a small SvelteKit and FastAPI starter unless the user
-explicitly expands its scope.
+code. Keep the project a small SvelteKit and FastAPI release-management tool (sign-in
+plus Jira release tools) unless the user explicitly expands its scope.
 
 ## Architecture
 

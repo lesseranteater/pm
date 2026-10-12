@@ -1,8 +1,10 @@
-# Svelte FastAPI Starter
+# Release Management Tools
 
-A local application with a SvelteKit frontend and FastAPI backend. It displays
-Jira service versions that are missing a release date. The production frontend
-is built as static files and served by FastAPI.
+A web application with a SvelteKit frontend and FastAPI backend for Jira release
+management. After signing in and entering a personal Jira token, users can list
+service versions that are missing a release date, release a deployment version,
+archive released versions, and check a deployment plan for Fix Version mismatches.
+The production frontend is built as static files and served by FastAPI.
 
 ## Requirements
 
@@ -120,12 +122,14 @@ count resets after a successful sign-in or 15 minutes without attempts. Unknown
 usernames are throttled the same way.
 The session endpoints are `/api/auth/login`, `/api/auth/me`, and `/api/auth/logout`.
 
-After signing in, enter your Jira Personal Access Token in the modal. The app
-stores it in an HTTP-only `pm_jira_token` cookie with no timed expiry; browsers may
-clear this session cookie when closed. Refreshes and tool changes reuse the token.
-Logout clears both cookies, and a new login prompts for a fresh token. Jira requests
-require both a valid login session and the token cookie. `JIRA_URL` still comes
-from `.env`; web tools never use `JIRA_TOKEN` from server configuration.
+After signing in, enter your Jira Personal Access Token in the modal. The server keeps
+it in memory, attached to your login session, and never sends it back to the browser.
+Refreshes and tool changes reuse it. It is dropped when you log out, when the session
+expires, and when the server restarts (which also ends every session), and a new login
+prompts for a fresh token. Jira requests require a valid login session and a saved
+token. `JIRA_URL` still comes from `.env`; web tools never use `JIRA_TOKEN` from server
+configuration. Older versions stored the token in a `pm_jira_token` cookie; that cookie
+is now ignored and cleared at the next sign-in.
 
 ## Frontend Development
 

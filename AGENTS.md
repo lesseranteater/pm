@@ -1,16 +1,17 @@
-# Svelte FastAPI Starter
+# Release Management Tools
 
 ## Purpose
 
-Maintain a small local starter application with a SvelteKit frontend and a
-FastAPI backend. The frontend is built as static files and served by FastAPI.
+Maintain a small release-management web application for Jira, with a SvelteKit
+frontend and a FastAPI backend. Users sign in, enter their own Jira token, and run
+the release tools. The frontend is built as static files and served by FastAPI.
 
 ## Architecture
 
 - Keep frontend code in `frontend/` and backend code in `backend/`.
 - SvelteKit uses `@sveltejs/adapter-static` and produces `frontend/build/`.
 - FastAPI serves the frontend at `/` and owns same-origin `/api` routes.
-- The application runs in one Docker container for local use.
+- The application runs in one Docker container.
 - Use `uv` for Python dependency management.
 
 ## Working Rules

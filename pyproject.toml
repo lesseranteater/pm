@@ -1,7 +1,7 @@
 [project]
 name = "svelte-fastapi-starter"
 version = "0.1.0"
-description = "Minimal Svelte and FastAPI starter application"
+description = "Release management tools for Jira: SvelteKit frontend, FastAPI backend"
 requires-python = ">=3.12"
 dependencies = [
   "argon2-cffi>=23,<26",

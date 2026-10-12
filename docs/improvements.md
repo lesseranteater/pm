@@ -63,3 +63,7 @@ Not reviewed: the other route pages and the e2e specs. Docker and the e2e tests 
   Done: wrappers deleted; tests now join the `stream_*` functions directly.
 - [x] **D2. Remove the dead `UNKNOWN|` regex alternative and the `_get_release_date` wrapper.**
   Done: the duplicate regex in `release_semantic_version.py` is gone (it uses `is_semantic_release_version`), as are the `UNKNOWN|` alternative and `_get_release_date`. The two modules now also share `PARENT_ISSUE_TYPES` and `RELEASABLE_SUBTASK_TYPES`. `ruff --select F` is clean.
+
+## Release workflow safety net
+
+Added with the `release_semantic_version.py` split (see [code_review.md](code_review.md), M2): `backend/tests/test_release_workflow_golden.py` and `backend/tests/golden/`. Regenerate the golden files only for an intended behavior change: `UPDATE_GOLDEN=1 uv run pytest backend/tests/test_release_workflow_golden.py`, then review the diff.
