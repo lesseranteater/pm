@@ -40,6 +40,7 @@ Not reviewed: the other route pages and the e2e specs. Docker and the e2e tests 
 ## Phase 3: remaining correctness
 
 - [x] **E5. Page `search_all_issues` by `total`, not by page length.** [release_semantic_version.py:218](../backend/app/release_semantic_version.py#L218).
+  A real Jira returned 1000 issues per page, so the cap was never a problem there; the paging by `total` stays as a safeguard.
   Done: pages by `total` and stops on an empty page; two tests.
 - [x] **E6. Skip "no released service Fix Version" in the partial-release comment for Config Change parents.** [release_semantic_version.py:552](../backend/app/release_semantic_version.py#L552).
   Done: skipped for Config Change parents; test covers both parent types.
@@ -51,7 +52,7 @@ Not reviewed: the other route pages and the e2e specs. Docker and the e2e tests 
 - [x] **I1. Fetch each parent's subtasks once and pass them through.** [release_semantic_version.py:447](../backend/app/release_semantic_version.py#L447), [473](../backend/app/release_semantic_version.py#L473), [652](../backend/app/release_semantic_version.py#L652); also [service_versions.py:65](../backend/app/service_versions.py#L65) and [release_check.py:96](../backend/app/release_check.py#L96) (cache shared parents). Currently about 3·N·M calls in a live release.
   Done in part: the two pre-release checks share one subtask load (3 loads per parent down to 2; the last must stay fresh because releasing changes the versions), and Release Check loads a shared parent once. Not done: `service_versions.py` still fetches each subtask individually; batching with `key in (...)` JQL needs a real Jira to check the behaviour.
 - [x] **I2. Cheaper Jira client setup.** [jira_credentials.py:20](../backend/app/jira_credentials.py#L20): load `.env` once, pass `get_server_info=False` and a request timeout.
-  Done in part: `.env` is loaded once at import and the client has a `(10, 120)` second timeout. Not done: `get_server_info=False`, because it sets the library version to `(0, 0, 0)` and changes some feature checks that I cannot verify without a real Jira.
+  Done in part: `.env` is loaded once at import and the client has a `(10, 120)` second timeout. Not done: `get_server_info=False`, because it sets the library version to `(0, 0, 0)` and changes some feature checks that I cannot verify without a real Jira. A real Jira (9.17.0, self-hosted) showed `get_server_info=False` works but saves only about 0.3 s per client, so it is deliberately not applied.
 - [x] **I3. Count log levels incrementally in the browser.** [ScriptLog.svelte:29](../frontend/src/lib/ScriptLog.svelte#L29), [run.svelte.ts:40](../frontend/src/lib/run.svelte.ts#L40).
   Done: `LogTracker` parses chunks incrementally; `ScriptRun` exposes `lines` and `counts`; two new unit tests.
 - [x] **I4. Replace the `BaseHTTPMiddleware` auth check.** [main.py:163](../backend/app/main.py#L163).
@@ -67,3 +68,23 @@ Not reviewed: the other route pages and the e2e specs. Docker and the e2e tests 
 ## Release workflow safety net
 
 Added with the `release_semantic_version.py` split (see [code_review.md](code_review.md), M2): `backend/tests/test_release_workflow_golden.py` and `backend/tests/golden/`. Regenerate the golden files only for an intended behavior change: `UPDATE_GOLDEN=1 uv run pytest backend/tests/test_release_workflow_golden.py`, then review the diff.
+
+## Real Jira findings (2026-10-12)
+
+See also [code_review.md](code_review.md). Summary of the results that affect this plan:
+
+A read-only probe ran against the real Jira (self-hosted, version 9.17.0) with the `JIRA_TOKEN` from `.env`. Only GET and HEAD requests were allowed, and none were refused. The release steps were dry runs. Project: IGM, test version `Deploy.ai-data.26.4.1`.
+
+| Question | Result | Consequence |
+| --- | --- | --- |
+| Page size cap (improvements.md E5) | Asking for 1000 issues returned 1000; IGM has 18,995. | The old "short page means the end" logic would not have truncated here. The `total`-based paging stays as a harmless safeguard. |
+| `get_server_info=False` (I2) | Works, with the same search and version results. Saves one request (about 0.3 s) per client and leaves the library version at `(0, 0, 0)`. | **Do not do it.** The saving is negligible. |
+| `myself()` with a personal access token (S3) | Works. | Verifying the token on save is feasible. It remains a decision: a Jira outage would then block saving a token. |
+| Archive request shape (C4) | The version's own URL has the `/rest/api/2/version/{id}` form, the endpoint the old code called. | `version.update(archived=True)` is equivalent. The call itself is still untested, because nothing was archived. |
+| Dry-run release (real app code) | 11 requests in 0.4 s, no errors, 4 warnings (a non-terminal deployment plan, an already Published story, a dry-run comment, the manual-update notice). | The workflow behaves as expected on real data. |
+| Service-version report, release check | 5 requests each, 0.2 s, no errors. | |
+| Archive previews | Each preview builds a fresh client, which costs one extra `serverInfo` request. By date up to today: 302 versions (158 semantic, 144 service). | Minor. A live archive dated today would archive all 302, so choose the date deliberately. |
+
+Not measured: the saving from I1 (subtasks loaded once per parent for the pre-release checks), because the old code could not be run and this version has few parents.
+
+Open observation: the release tool is hard-wired to project IGM (`PROJECT_KEY` in `release_semantic_version.py`), and its page has no project field. The probe had to patch the constant to use another project.

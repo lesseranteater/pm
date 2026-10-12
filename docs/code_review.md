@@ -54,6 +54,24 @@ Recommendation recorded 2026-10-12. The app will later run behind a domain name 
 - Python (`pip-audit` on the locked runtime dependencies): no known vulnerabilities.
 - Frontend (`pnpm audit`): one low-severity advisory, `cookie` below 0.7 via `@sveltejs/kit`. The app is a static build, so that code is not shipped. Update SvelteKit when a release pulls in `cookie` 0.7 or newer.
 
+## Real Jira findings (2026-10-12)
+
+A read-only probe ran against the real Jira (self-hosted, version 9.17.0) with the `JIRA_TOKEN` from `.env`. Only GET and HEAD requests were allowed, and none were refused. The release steps were dry runs. Project: IGM, test version `Deploy.ai-data.26.4.1`.
+
+| Question | Result | Consequence |
+| --- | --- | --- |
+| Page size cap (improvements.md E5) | Asking for 1000 issues returned 1000; IGM has 18,995. | The old "short page means the end" logic would not have truncated here. The `total`-based paging stays as a harmless safeguard. |
+| `get_server_info=False` (I2) | Works, with the same search and version results. Saves one request (about 0.3 s) per client and leaves the library version at `(0, 0, 0)`. | **Do not do it.** The saving is negligible. |
+| `myself()` with a personal access token (S3) | Works. | Verifying the token on save is feasible. It remains a decision: a Jira outage would then block saving a token. |
+| Archive request shape (C4) | The version's own URL has the `/rest/api/2/version/{id}` form, the endpoint the old code called. | `version.update(archived=True)` is equivalent. The call itself is still untested, because nothing was archived. |
+| Dry-run release (real app code) | 11 requests in 0.4 s, no errors, 4 warnings (a non-terminal deployment plan, an already Published story, a dry-run comment, the manual-update notice). | The workflow behaves as expected on real data. |
+| Service-version report, release check | 5 requests each, 0.2 s, no errors. | |
+| Archive previews | Each preview builds a fresh client, which costs one extra `serverInfo` request. By date up to today: 302 versions (158 semantic, 144 service). | Minor. A live archive dated today would archive all 302, so choose the date deliberately. |
+
+Not measured: the saving from I1 (subtasks loaded once per parent for the pre-release checks), because the old code could not be run and this version has few parents.
+
+Open observation: the release tool is hard-wired to project IGM (`PROJECT_KEY` in `release_semantic_version.py`), and its page has no project field. The probe had to patch the constant to use another project.
+
 ## Status at a glance
 
 | ID | Severity | Title | Status |
@@ -138,11 +156,11 @@ Recommendation recorded 2026-10-12. The app will later run behind a domain name 
   - [x] Result queue stays unbounded on purpose, documented in `stream_script_log`: a bounded queue would let a slow client block a run that holds the lock.
   - [x] Document, and log, that a started run completes even if the client leaves (stopping a release half-way is worse). A queued run whose client has left now never starts.
   - [x] Test: two concurrent callers, the waiting message, and the timeout; plus abandoned-while-queued and abandoned-mid-run.
-- [x] **S3. Bind the Jira token to the session.** Medium, medium. Done, except the Jira verification call (see below).
+- [x] **S3. Bind the Jira token to the session.** Medium, medium. Done, except the optional Jira verification call (see below).
   `save_jira_token` and `ApiAuthMiddleware` in [main.py](../backend/app/main.py), [jira_credentials.py](../backend/app/jira_credentials.py).
   Problem: the token is a raw cookie sent on every request, outlives the server-side session, and is never checked against the signed-in user.
   - [x] The token is kept server-side in `Authentication.jira_tokens`, keyed by session, and dropped on logout, expiry and restart. The `pm_jira_token` cookie is no longer set; a leftover one is ignored and cleared at sign-in.
-  - [ ] Verify the token with a cheap Jira call (for example `jira.myself()`) before accepting it. Not done on purpose: it cannot be checked without a real Jira, and a wrong rejection would lock every user out.
+  - [ ] Verify the token with a cheap Jira call (for example `jira.myself()`) before accepting it. Not done: a real Jira confirmed `myself()` works with a personal access token (see "Real Jira findings"), but a Jira outage would then block saving a token. Decide first.
   - [x] `/api/auth/me` and the middleware read the server-side token; the frontend needed no change because the API is the same. Tests rewritten, and a live HTTP check confirmed the token never appears in a cookie.
 - [x] **C3. Release Check no longer redirects `sys.stdout` and now streams.** Done earlier; see `release_check.py`.
 
