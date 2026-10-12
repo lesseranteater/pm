@@ -4,12 +4,13 @@ import { releaseSemanticVersion } from './release-semantic-version';
 
 afterEach(() => vi.unstubAllGlobals());
 
-test('submits the release parameters and returns the log', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"log":"Dry run complete"}')));
+test('submits the release parameters and streams the log', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Dry run complete')));
+  let log = '';
 
-  await expect(releaseSemanticVersion('Hotfix.ps-dev-1.26.4.3', true)).resolves.toBe(
-    'Dry run complete'
-  );
+  await releaseSemanticVersion('Hotfix.ps-dev-1.26.4.3', true, (text) => (log += text));
+
+  expect(log).toBe('Dry run complete');
   expect(globalThis.fetch).toHaveBeenCalledWith('/api/release-semantic-version', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

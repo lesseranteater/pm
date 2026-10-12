@@ -1,13 +1,17 @@
-import io
 import logging
 import os
 import re
 from threading import Lock
-from typing import Iterable
+from typing import Iterable, Iterator
 
 from dotenv import load_dotenv
 from jira import JIRA
+from jira.exceptions import JIRAError
 from jira.resources import Issue, Version
+
+from .errors import ProjectNotFoundError
+from .script_runner import stream_script_log
+from .service_versions import is_semantic_release_version
 
 # ============================================================================
 # CONFIGURATION
@@ -109,6 +113,12 @@ release_lock = Lock()
 # ============================================================================
 
 
+def jira_token_configured() -> bool:
+    """Return whether a Jira token is available to the server."""
+    load_dotenv()
+    return bool(os.getenv("JIRA_TOKEN", ""))
+
+
 def create_jira_client() -> JIRA:
     load_dotenv()
 
@@ -177,14 +187,36 @@ def find_project_version(
     return matching_versions[0]
 
 
-def list_unreleased_semantic_versions(jira: JIRA, project_key: str) -> list[str]:
-    """Return names of unreleased semantic versions in the project."""
+def version_status(version: Version) -> str:
+    """Classify a Jira version as archived, released, or unreleased (archived wins)."""
+
+    if bool(getattr(version, "archived", False)):
+        return "archived"
+    return "released" if bool(getattr(version, "released", False)) else "unreleased"
+
+
+def list_semantic_versions(jira: JIRA, project_key: str, status: str) -> list[str]:
+    """Return names of semantic versions in the project with the given status."""
+
+    try:
+        project_versions = jira.project_versions(project_key)
+    except JIRAError as error:
+        if error.status_code == 404:
+            raise ProjectNotFoundError(f"Jira project '{project_key}' was not found.") from error
+        raise
 
     return sorted(
         version.name
-        for version in jira.project_versions(project_key)
-        if is_semantic_version(version) and not bool(getattr(version, "released", False))
+        for version in project_versions
+        if is_semantic_release_version(getattr(version, "name", "") or "")
+        and version_status(version) == status
     )
+
+
+def get_semantic_versions(status: str, project_key: str = PROJECT_KEY) -> list[str]:
+    """Return semantic version names with the given status for a Jira project."""
+
+    return list_semantic_versions(create_jira_client(), project_key, status)
 
 
 def search_all_issues(
@@ -954,10 +986,6 @@ def _release_version(jira: JIRA, version_name: str, is_dry_run: bool) -> None:
     if is_dry_run:
         log.info("DRY RUN enabled: Jira updates will not be executed.")
 
-    log.info("Unreleased semantic versions:")
-    unreleased_semantic_versions = list_unreleased_semantic_versions(jira, PROJECT_KEY)
-    log.info("%s", "\n".join(unreleased_semantic_versions) if unreleased_semantic_versions else "None")
-
     # ========================================================================
     # FIND VERSION
     # ========================================================================
@@ -1139,18 +1167,16 @@ def _release_version(jira: JIRA, version_name: str, is_dry_run: bool) -> None:
     )
 
 
+def stream_release_semantic_version(version_name: str, is_dry_run: bool) -> Iterator[str]:
+    """Run the Jira release workflow, yielding its operational log as it is written."""
+    return stream_script_log(
+        log,
+        release_lock,
+        lambda: _release_version(create_jira_client(), version_name, is_dry_run),
+        "Release processing failed.",
+    )
+
+
 def release_semantic_version(version_name: str, is_dry_run: bool) -> str:
-    """Run the Jira release workflow and return its operational log."""
-    output = io.StringIO()
-    handler = logging.StreamHandler(output)
-    handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(message)s"))
-    # The workflow changes shared Jira state, and its logger is request-scoped.
-    with release_lock:
-        log.addHandler(handler)
-        try:
-            _release_version(create_jira_client(), version_name, is_dry_run)
-        except Exception:
-            log.exception("Release processing failed.")
-        finally:
-            log.removeHandler(handler)
-    return output.getvalue()
+    """Run the Jira release workflow and return its complete operational log."""
+    return "".join(stream_release_semantic_version(version_name, is_dry_run))

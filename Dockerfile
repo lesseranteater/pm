@@ -15,6 +15,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
 COPY backend/ ./backend/
+COPY tools/ ./tools/
 COPY --from=frontend-build /app/frontend/build ./frontend/build
 
 ENV FRONTEND_BUILD_DIR=/app/frontend/build

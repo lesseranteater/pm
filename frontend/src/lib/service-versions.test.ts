@@ -4,15 +4,13 @@ import { getServiceVersions } from './service-versions';
 
 afterEach(() => vi.unstubAllGlobals());
 
-test('returns service versions from the backend', async () => {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn().mockResolvedValue(new Response('[{"id":"1","name":"service.26.4.1"}]'))
-  );
+test('streams the report log from the backend', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Found 1 parent')));
+  let log = '';
 
-  await expect(getServiceVersions('IGM', 'Deploy.ai-data.26.4.1')).resolves.toEqual([
-    { id: '1', name: 'service.26.4.1' }
-  ]);
+  await getServiceVersions('IGM', 'Deploy.ai-data.26.4.1', (text) => (log += text));
+
+  expect(log).toBe('Found 1 parent');
   expect(globalThis.fetch).toHaveBeenCalledWith('/api/service-versions', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -20,10 +18,10 @@ test('returns service versions from the backend', async () => {
   });
 });
 
-test('rejects invalid responses', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"name":"service"}')));
+test('rejects failed requests', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 503 })));
 
-  await expect(getServiceVersions('IGM', 'Deploy.ai-data.26.4.1')).rejects.toThrow(
-    'Service version response is invalid'
+  await expect(getServiceVersions('IGM', 'Deploy.ai-data.26.4.1', () => {})).rejects.toThrow(
+    'failed'
   );
 });

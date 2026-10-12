@@ -6,11 +6,13 @@ test.skip(
 );
 
 test('displays service versions from FastAPI', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/list-service-versions-without-a-release-date');
 
   await expect(
-    page.getByRole('heading', { name: 'Service versions without a release date' })
+    page.getByRole('heading', { name: 'List Service Versions Without a Release Date' })
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Load report' }).click();
-  await expect(page.locator('li')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Load Report' }).click();
+  await expect(page.getByRole('log', { name: 'Script Log' })).toContainText(
+    'Service versions without release date'
+  );
 });

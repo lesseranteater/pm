@@ -1,58 +1,81 @@
 <script lang="ts">
-  import { getServiceVersions, type ServiceVersion } from '$lib/service-versions';
+  import { onMount } from 'svelte';
+  import { resolve } from '$app/paths';
+  import { getHealth } from '$lib/health';
+  import { tools } from '$lib/tools';
 
-  let projectKey = $state('IGM');
-  let releaseVersion = $state('Deploy.ai-data.26.4.1');
-  let versions = $state<ServiceVersion[] | null>(null);
-  let error = $state('');
-  let pending = $state(false);
+  let jiraConfigured = $state(true);
 
-  async function loadServiceVersions() {
-    error = '';
-    pending = true;
+  // A missing token is the most common reason every tool fails, so say so up front.
+  onMount(async () => {
     try {
-      versions = await getServiceVersions(projectKey, releaseVersion);
+      jiraConfigured = (await getHealth()).jiraConfigured;
     } catch {
-      error = 'Unable to load service versions from the backend.';
-    } finally {
-      pending = false;
+      // If the check itself fails the tools will report their own errors.
     }
-  }
+  });
 </script>
 
 <svelte:head>
-  <title>Service Versions</title>
-  <meta name="description" content="Jira service versions without a release date." />
+  <title>Release Management Tools</title>
+  <meta
+    name="description"
+    content="Release Management Tools runs the team's Jira release scripts from one place, with a log for every run."
+  />
 </svelte:head>
 
 <main>
-  <section aria-labelledby="page-title">
-    <p class="eyebrow">Jira release report</p>
-    <h1 id="page-title">Service versions without a release date</h1>
-    <form
-      onsubmit={(event) => {
-        event.preventDefault();
-        void loadServiceVersions();
-      }}
-    >
-      <label for="project-key">Project key</label>
-      <input id="project-key" bind:value={projectKey} maxlength="10" required />
-      <label for="release-version">Deployment version</label>
-      <input id="release-version" bind:value={releaseVersion} maxlength="120" required />
-      <button type="submit" disabled={pending}>{pending ? 'Loading...' : 'Load report'}</button>
-    </form>
-    {#if error}
-      <p class="error" role="alert">{error}</p>
-    {:else if pending && versions === null}
-      <p aria-live="polite">Loading service versions...</p>
-    {:else if versions?.length === 0}
-      <p class="message">Every matching service version has a release date.</p>
-    {:else if versions}
-      <ul aria-live="polite">
-        {#each versions as version (version.id)}
-          <li>{version.name}</li>
-        {/each}
-      </ul>
+  <section class="splash" aria-labelledby="page-title">
+    <h1 id="page-title">Release Management Tools</h1>
+    {#if !jiraConfigured}
+      <p class="error" role="alert">
+        Jira access is not configured, so the tools cannot reach Jira. Add JIRA_TOKEN to the .env
+        file in the project folder and restart the server.
+      </p>
     {/if}
+    <p class="lead">
+      One place to run the Jira release scripts, with a log for every run. Each tool wraps a script
+      the release team used to run by hand, so the steps are the same every time and nothing is
+      hidden.
+    </p>
+
+    <h2>Tools</h2>
+    <ul class="tool-list">
+      {#each tools as tool (tool.route)}
+        <li>
+          <a class="tool-card" href={resolve(tool.route)}>
+            <span class="tool-tag" class:tool-tag-writes={tool.access === 'Changes Jira'}>
+              {tool.access}
+            </span>
+            <span class="tool-title">{tool.title}</span>
+            <span class="tool-summary">{tool.summary}</span>
+            <span class="tool-open">Open Tool</span>
+          </a>
+        </li>
+      {/each}
+    </ul>
+
+    <h2>How It Works</h2>
+    <ol class="steps">
+      <li>
+        <strong>Choose a tool</strong> from the list above or the Select a Tool menu at the top.
+      </li>
+      <li>
+        <strong>Check the note</strong> above the button. It says exactly what the run will do before
+        you start it.
+      </li>
+      <li>
+        <strong>Run it and read the log.</strong> The script log shows every step as it happens, and warnings
+        are highlighted.
+      </li>
+    </ol>
+
+    <h2>Safe By Default</h2>
+    <p class="notice">
+      Tools that change Jira start with <strong>Dry Run</strong> turned on, which only lists what would
+      happen. A live run is only available after a dry run with the same settings finishes without errors,
+      and you confirm it before it starts. Nothing runs until you click the button, and the Jira token
+      never leaves the server.
+    </p>
   </section>
 </main>

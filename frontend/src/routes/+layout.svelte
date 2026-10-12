@@ -1,32 +1,39 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
+  import { tools, type ToolRoute } from '$lib/tools';
   import '../app.css';
 
-  type ScriptRoute = '/' | '/release-semantic-version';
-
-  const releaseRoute: ScriptRoute = '/release-semantic-version';
-  let selectedScript = $state<ScriptRoute>(page.url.pathname === releaseRoute ? releaseRoute : '/');
+  // Follows the URL, so the back and forward buttons keep the dropdown in sync.
+  // It is empty on the home page, where no tool is open yet.
+  const selectedScript = $derived<ToolRoute | ''>(
+    tools.find((tool) => tool.route === page.url.pathname)?.route ?? ''
+  );
   let { children } = $props();
 
-  function executeSelectedScript() {
-    const scriptSelector = document.getElementById('script') as HTMLSelectElement;
-    window.location.assign(resolve(scriptSelector.value as ScriptRoute));
+  // Choosing a tool loads it straight away.
+  function loadSelectedScript(event: Event & { currentTarget: HTMLSelectElement }) {
+    void goto(resolve(event.currentTarget.value as ToolRoute));
   }
-
 </script>
 
-<div class="app-shell">
-  <header class="app-header">
-    <a class="brand" href={resolve('/')}>Release tools</a>
+<header class="app-header">
+  <div class="app-header-inner">
+    <a class="brand" href={resolve('/')}>Release Management Tools</a>
     <div class="script-selector">
-      <label for="script">Script</label>
-      <select id="script" bind:value={selectedScript}>
-        <option value="/">Service Versions without a Release Date</option>
-        <option value={releaseRoute}>Release semantic version</option>
+      <label for="script">Select a Tool</label>
+      <select id="script" value={selectedScript} onchange={loadSelectedScript}>
+        {#if !selectedScript}
+          <option value="" disabled>Choose a tool</option>
+        {/if}
+        {#each tools as tool (tool.route)}
+          <option value={tool.route}>{tool.title}</option>
+        {/each}
       </select>
-      <button type="button" onclick={executeSelectedScript}>Load</button>
     </div>
-  </header>
+  </div>
+</header>
+<div class="app-shell">
   {@render children()}
 </div>
