@@ -139,7 +139,7 @@
     <p class="log-meta">{run.description}</p>
   {/if}
 
-  <p class="log-status" aria-hidden="true">
+  <p class="log-status" class:log-status-failed={run.status === 'failed'} aria-hidden="true">
     {#if run.running}<span class="spinner"></span>{/if}
     {statusText}
   </p>
@@ -190,7 +190,11 @@
       role="log"
       aria-live="off"
       aria-labelledby="{id}-label">{#each lines as line, index (index)}<span
-          class={line.level === 'WARNING' ? 'log-warning' : undefined}
+          class={line.level === 'WARNING'
+            ? 'log-warning'
+            : line.level === 'ERROR' || line.level === 'CRITICAL'
+              ? 'log-error'
+              : undefined}
           >{line.text}
 </span>{/each}</pre>
   {:else if run.running}

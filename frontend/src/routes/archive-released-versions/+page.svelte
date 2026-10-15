@@ -232,7 +232,7 @@
           ignored. Release dates are not used in this mode.
         </p>
       {/if}
-      <p class="preview" aria-live="polite">
+      <p class="preview" class:preview-error={previewState === 'error'} aria-live="polite">
         {#if previewState === 'loading'}
           Checking how many versions match...
         {:else if previewState === 'ready' && preview}

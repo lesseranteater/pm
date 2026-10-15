@@ -640,6 +640,15 @@ fieldset input {
   color: #fde68a;
 }
 
+.release-log .log-error {
+  display: block;
+  margin: 0 -1rem;
+  padding: 0 1rem 0 calc(1rem - 3px);
+  border-left: 3px solid #f87171;
+  background: rgb(248 113 113 / 16%);
+  color: #fecaca;
+}
+
 /* ------------------------------------------------------------------------
    Small screens
    ------------------------------------------------------------------------ */
@@ -831,6 +840,10 @@ fieldset input {
   color: var(--muted);
 }
 
+.preview-error {
+  color: var(--danger-text);
+}
+
 .preview strong {
   color: var(--heading);
 }
@@ -889,6 +902,7 @@ fieldset input {
   margin: 0.5rem 0;
 }
 
+.log-status-failed,
 .log-count-problem {
   color: var(--danger-text);
   font-weight: 700;

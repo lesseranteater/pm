@@ -135,6 +135,68 @@ def test_clients_and_streaming_workers_use_the_request_cookie(monkeypatch):
     assert not jira_credentials.jira_token_configured()
 
 
+TWO_USERS = {"alice@example.com": HASH, "bob@example.com": HASH}
+
+
+def login(app, username):
+    client = TestClient(app)
+    assert client.post("/api/auth/login", json={"username": username, "password": "password"}).status_code == 200
+    return client
+
+
+def test_each_user_reaches_jira_with_their_own_token(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(jira_credentials, "JIRA", lambda **kwargs: kwargs["token_auth"])
+    logger = logging.getLogger("test-jira-token-per-user")
+    logger.setLevel(logging.INFO)
+    lock = threading.Lock()
+
+    def report(project, version):
+        def work():
+            seen[version] = jira_credentials.create_jira_client()
+            logger.info("Report complete")
+        return stream_script_log(logger, lock, work, "Failed")
+
+    app = create_app(auth_users=TWO_USERS, service_version_reporter=report)
+    alice, bob = login(app, "alice@example.com"), login(app, "bob@example.com")
+    alice.post("/api/auth/jira-token", json={"token": "alice-token"})
+    bob.post("/api/auth/jira-token", json={"token": "bob-token"})
+
+    def run(job):
+        client, version = job
+        result = client.post("/api/service-versions", json={"project_key": "IGM", "release_version": version})
+        assert result.status_code == 200 and "Report complete" in result.text
+
+    jobs = [(alice, "Deploy.ai-data.26.4.1"), (bob, "Deploy.ai-data.26.4.2")] * 5
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(run, jobs))
+    assert seen == {"Deploy.ai-data.26.4.1": "alice-token", "Deploy.ai-data.26.4.2": "bob-token"}
+
+
+def test_one_users_token_changes_and_logout_do_not_affect_another():
+    app = create_app(auth_users=TWO_USERS)
+    alice, bob = login(app, "alice@example.com"), login(app, "bob@example.com")
+    alice.post("/api/auth/jira-token", json={"token": "alice-token"})
+    bob.post("/api/auth/jira-token", json={"token": "bob-token"})
+    tokens = app.state.authentication.jira_tokens
+
+    alice.post("/api/auth/jira-token", json={"token": "alice-new-token"})
+    assert sorted(tokens.values()) == ["alice-new-token", "bob-token"]
+
+    alice.post("/api/auth/logout")
+    assert list(tokens.values()) == ["bob-token"]
+    assert alice.get("/api/auth/me").status_code == 401
+    assert bob.get("/api/auth/me").json() == {"username": "bob@example.com", "jira_configured": True}
+
+
+def test_user_without_a_token_does_not_inherit_anothers():
+    app = create_app(auth_users=TWO_USERS)
+    alice, bob = login(app, "alice@example.com"), login(app, "bob@example.com")
+    alice.post("/api/auth/jira-token", json={"token": "alice-token"})
+    assert bob.get("/api/auth/me").json()["jira_configured"] is False
+    assert bob.get("/api/semantic-versions").status_code == 428
+
+
 def test_no_environment_fallback_for_direct_client(monkeypatch):
     monkeypatch.setenv("JIRA_TOKEN", "unused-server-token")
     with pytest.raises(RuntimeError, match="Enter your Jira token"):
